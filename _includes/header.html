@@ -1,0 +1,19 @@
+<nav class="navbar navbar-default navbar-fixed-top">
+  <div class="container">
+    <div class="navbar-header">
+      <a class="navbar-brand" href="{{ site.url }}"> <img alt="Brand" src="">
+      </a>
+    </div>
+    <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+      <ul class="nav navbar-nav navbar-right">
+        {% for site_page in site.pages reversed %}
+        <li class="{% if page.title == site_page.title %}active{% endif%}"><a href="{{ site_page.url }}">{{ site_page.title }}</a></li>
+        {% endfor %}
+      </ul>
+    </div>
+    <!-- /.navbar-collapse -->
+  </div>
+</nav>
+
+<div class="menu-placeholder">
+</div>
