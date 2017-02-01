@@ -8,6 +8,7 @@ description: >
   is to solve most of those issues allowing developers to focus on the Domain and its implementation.
 baseurl: ""
 url: http://www.pousse-cafe-framework.org
+latest_release_version: 0.0.1
 
 # Build settings
 markdown: kramdown
