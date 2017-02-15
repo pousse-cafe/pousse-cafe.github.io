@@ -19,7 +19,7 @@ public class Product extends AggregateRoot&lt;ProductKey, ProductData&gt; {
         getData().setAvailableUnits(unitsAvailable - description.units);
 
         // Domain Event emission
-        getUnitOfConsequence().addConsequence(new OrderPlaced(getData().getKey(), description));
+        addDomainEvent(new OrderPlaced(getData().getKey(), description));
     }
 
     /**

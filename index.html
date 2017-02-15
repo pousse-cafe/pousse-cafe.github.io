@@ -14,8 +14,8 @@ title: Home
   <div class="container">
     <h2>Quick description</h2>
     <p>Pousse-Café is a Java framework that eases the writing of applications following Domain-Driven Design (DDD)
-      methodology. It relies on meta-applications described by Domain logic only. Those meta-applications can be
-      instantiated as real applications when augmented with adapters connecting it to the real world.</p>
+      methodology. It relies on meta-applications described by almost only Domain logic. Meta-applications can be
+      instantiated as real applications by plugging-in the adapters connecting it to the real world.</p>
   </div>
   <div class="container">
     <div class="row">
@@ -27,12 +27,13 @@ title: Home
         <div class="col-md-4">
             <h3>Flexible</h3>
             <p>Pousse-Café has very few dependencies, reducing dramatically the risk of conflict with other surrounding
-            frameworks. Also, Pousse-Café cohabits well with legacy code allowing a step-by-step migration to DDD.</p>
+            frameworks. Also, Pousse-Café cohabits well with legacy code, allowing for step-by-step migration to DDD.</p>
         </div>
         <div class="col-md-4">
             <h3>Technology agnostic</h3>
             <p>Pousse-Café meta-applications are written without relying on storage and/or messaging technologies.
-            This allows to postpone technology choices without impacting the capacity to deliver business value.</p>
+            This allows to postpone technology choices without impacting the capacity to deliver business value.
+            It also eases the migration from one technology to another.</p>
         </div>
     </div>
   </div>
@@ -41,7 +42,7 @@ title: Home
 <section>
   <div class="container">
     <h2>How does it work?</h2>
-    <h3>1. Implement Domain logic in a meta-application (including Aggregates, Services, work-flows, etc.)</h3>
+    <h3>1. Implement a meta-application (including Aggregates, Services, work-flows, etc.)</h3>
 
     <div class="panel-group" id="domainGroup" role="tablist" aria-multiselectable="true">
       <div class="panel panel-default">
@@ -117,7 +118,7 @@ title: Home
     <ol>
       <li><p>Generate a simple app Maven project:</p> <pre><code class="bash">mvn archetype:generate -B \
     -DarchetypeGroupId=org.pousse-cafe-framework \
-    -DarchetypeArtifactId=pousse-cafe-simple-app-archetype \
+    -DarchetypeArtifactId=pousse-cafe-simple-meta-app-archetype \
     -DarchetypeVersion={{ site.latest_release_version }} \
     -DgroupId=test \
     -DartifactId=test \
