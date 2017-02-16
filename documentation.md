@@ -46,17 +46,22 @@ that Pousse-Café addresses.
 
 - The implementation of Domain Events (i.e. their publication and consumption) generally involves a messaging infrastructure. It
 is, in a distributed context, not possible to prevent that some messages are actually delivered twice, which means that the same Domain
-Event might be consumed several times.
+Event might be consumed several times. Pousse-Café keeps track of the handling of all Domain Events (and Commands, see
+section *Execute operations and handle Domain Events*) allowing for the detection of duplicate consumptions.
 - Concurrent modifications of the same Aggregate need to be handled. With transactional storage systems, optimistic
 concurrency control is often used for scalability reasons but in that case, updates might frequently fail. On the other
 hand, when using non-transactional storage systems, concurrent modifications should not endanger data consistency.
+Pousse-Café triggers operations by handling sequentially Commands submitted to a Command Processor (see section *Submit Commands*)
+preventing any concurrent update.
 - When writing Domain logic, the code must be as exempt as possible of technical elements. It is easy to end up in a
 situation where storage-related issues are handled by code that is part of the implementation of a Domain component
-(Aggregate, Service, etc).
+(Aggregate, Service, etc). Pousse-Café defines a way of implementing Aggregates allowing this (see section *Implement
+Aggregates*).
+- Eventual consistency sometimes makes it sometimes hard to figure out when some operation is actually done. This is an
+issue when users are for instance expecting feedback on the progress of an operation they triggered. Pousse-Café provides
+Process Managers allowing to keep track of complex processes (see section *Model complex processes*).
 - The consumption of Domain Events might temporarily fail. In some cases, the Domain Events should be consumed again to
 resume a process.
-- Eventual consistency sometimes makes it sometimes hard to figure out when some operation is actually done. This is an
-issue when users are for instance expecting feedback on the progress of an operation they triggered.
 
 Pousse-Café relies on the definition of a *Meta-Application* which is composed of the Domain implementation as well as
 additional non-Domain components allowing the full description of the needs (i.e. not only the model but also the way it
@@ -77,7 +82,6 @@ the possibility to place an Order i.e. remove a number of units from the number 
 units available, the `OrderPlaced` Event is added. Otherwise, the `OrderRejected` Event is added.
 
     public class Product extends AggregateRoot<ProductKey, Data> {
-    
         ...
     
         public void placeOrder(OrderDescription description) {
@@ -91,14 +95,12 @@ units available, the `OrderPlaced` Event is added. Otherwise, the `OrderRejected
         }
     
         public static interface Data extends AggregateData<ProductKey> {
-    
             ...
     
             void setAvailableUnits(int units);
     
             int getAvailableUnits();
         }
-    
     }
 
 Note that the interface defining the data of an Aggregate should define properties, each property being defined by a
@@ -110,7 +112,6 @@ Domain Events are implemented by classes extending the `DomainEvent` class. The 
 implementation of the `OrderPlaced` Event.
 
     public class OrderPlaced extends DomainEvent {
-    
         private ProductKey productKey;
     
         private OrderDescription description;
@@ -121,7 +122,6 @@ implementation of the `OrderPlaced` Event.
         }
     
         ...
-    
     }
 
 
@@ -130,7 +130,6 @@ the Aggregate's key, `A` is the Aggregate's type and `D` the type of Aggregate's
 Factory for the Product Aggregate. It allows the creation of a Product with no available units initially.
 
     public class ProductFactory extends Factory<ProductKey, Product, Product.Data> {
-    
         public Product buildProductWithNoStock(ProductKey productKey) {
             Product product = newAggregateWithKey(productKey);
             product.setTotalUnits(0);
@@ -150,7 +149,6 @@ the Aggregate's key and `D` the type of Aggregate's data. The following example 
 Aggregate.
 
     public class ProductRepository extends Repository<Product, ProductKey, Product.Data> {
-    
         @Override
         protected Product newAggregate() {
             return new Product();
@@ -180,13 +178,11 @@ is considered as a setter as soon as it starts with `set` and takes a single par
 Service.
 
     public class Service1 {
-    
         private Service2 service2;
         
         public void setService2(Service2 service2) {
             this.service2 = service2;
         }
-    
     }
 
 ## Execute operations and handle Domain Events
@@ -200,7 +196,6 @@ placing an order (see example in Aggregates section). A Command is implemented b
 shown in the following example.
 
     public class PlaceOrder extends Command {
-    
         private ProductKey productKey;
     
         private OrderDescription description;
@@ -211,7 +206,6 @@ shown in the following example.
         }
     
         ...
-    
     }
 
 A *Workflow* is a non-Domain service which defines listeners that consume a Command or a Domain Event. The main purpose
@@ -223,7 +217,6 @@ In a Pousse-Café meta-application, there must be zero or one listener per Comma
 listeners for a Domain Event. In below example, there are 2 listeners for the same Domain Event.
 
     public class ProductManagement extends Workflow {
-    
         private ProductFactory productFactory;
     
         private ProductRepository productRepository;
@@ -295,7 +288,6 @@ and Aggregates composing the Meta-Application. Below example shows a `MetaApplic
 describes a Meta-Application composed of an Aggregate, a Domain Service and a Workflow:
 
     public abstract class MyAppConfiguration extends MetaApplicationConfiguration {
-    
         public void registerComponents() {
             registerAggregate(productConfiguration());
             registerService(new ContentChooser());
@@ -378,7 +370,6 @@ Commands and test the result of their execution. Below example shows a test veri
 `CreateProduct` Command actually ends in the creation of it.
 
     public class ProductManagementTest extends MetaApplicationTest {
-    
         @Override
         protected void registerComponents() {
             configuration.registerAggregate(new TestConfigurationBuilder()
@@ -403,3 +394,123 @@ use the default in-memory data factory and access implementations. `processAndAs
 Command to the test Meta-Application Context and waits for the handling's result. If the handling was not successful, 
 an assertion failure occurs. Finally, `find` method is a shortcut actually retrieving the Repository linked to given
 Aggregate and calling the `find` method of the Repository with given key.
+
+## Model complex processes
+
+Sometimes, a process is represented by a sequence of Commands triggered by the consumption of Domain Events. In this case,
+the *Process Manager* (PM) is useful to keep track of the execution of a process. Pousse-Café allows to easily describe a
+process by providing its state machine i.e. the different states the process might be in and the transitions allowing
+to go from one state to another. The execution of a transition is triggered by the consumption of a Domain Event and
+might trigger the submission of a Command. The process ends when a transition leading to a final state is executed.
+The final state can either represent a success or a failure.
+
+Below figure gives an example of process taken from the sample Meta-Application available [here](https://github.com/pousse-cafe/pousse-cafe/tree/master/pousse-cafe-sample-meta-app).
+It represents and order placement which is triggered by first checking if enough units of requested product are
+available, if it is not the case, the request is rejected and the process ends in error. Otherwise, an order is actually created.
+The process ends successfully once the order has been persisted.
+
+<div class="figure">
+    <img width="80%" src="/img/process.svg">
+</div>
+
+Let's now inspect the code actually implementing this process. First, some listeners need to be added to a `Workflow`:
+
+    @CommandListener
+    public ProcessManagerKey startOrderPlacementProcess(StartOrderPlacementProcess command) {
+        ProcessManagerKey processManagerKey = processManagerKey(command);
+        OrderPlacementStateMachine stateMachine = new OrderPlacementStateMachine(command.getProductKey(),
+                command.getOrderDescription());
+        return startProcess(processManagerKey, stateMachine);
+    }
+
+    @CommandListener
+    public void placeOrder(PlaceOrder command) {
+        ...
+    }
+
+    @DomainEventListener
+    public void updateProcessManager(OrderPlaced event) {
+        ProcessManagerKey processManagerKey = processManagerKey(event);
+        executeTransition(processManagerKey, current -> {
+            WaitOrderPlaced waitOrderPlaced = (WaitOrderPlaced) current;
+            return waitOrderPlaced.toWaitOrderCreated();
+        });
+    }
+
+    @CommandListener
+    public void createOrder(CreateOrder event) {
+        ...
+    }
+
+    @DomainEventListener
+    public void updateProcessManager(OrderRejected event) {
+        ProcessManagerKey processManagerKey = processManagerKey(event);
+        executeTransition(processManagerKey, current -> {
+            WaitOrderPlaced waitOrderPlaced = (WaitOrderPlaced) current;
+            return waitOrderPlaced.toError("Order rejected");
+        });
+    }
+
+    @DomainEventListener
+    public void orderCreated(OrderCreated event) {
+        ProcessManagerKey processManagerKey = processManagerKey(event);
+        executeTransition(processManagerKey, current -> {
+            WaitOrderCreated waitOrderCreated = (WaitOrderCreated) current;
+            return waitOrderCreated.toFinal();
+        });
+    }
+
+To start a process, the `startProcess` method must be called with a PM key and a state machine instance as arguments.
+The `OrderPlacementStateMachine` class describes the state machine of the process. It extends the `StateMachine` class. Its main purpose is to
+keep the state and data related to a particular process execution and select the initial state of the process. The fact
+of having the listener to `StartOrderPlacementProcess` command returning the PM key is important: when submitting
+and instance of this Command (see *Submit Commands* section) and waiting for the result of its handling, it is the
+result of the process handling which is actually observed instead of the handling of the Command itself. In other words,
+when waiting for the processing result of `StartOrderPlacementProcess` command, this result is available only after
+`OrderRejected` or `OrderCreated` Events have been consumed. If `OrderRejected` was handled, then the `isSuccess` method
+of `CommandHandlingResult` returns `false` because `toError` returns a state extending `ErrorState`. If `OrderCreated` was handled, then the `isSuccess` method
+of `CommandHandlingResult` returns `true` because `toFinal` returns an instance of `Final` state.
+
+    public class OrderPlacementStateMachine extends StateMachine {
+        ...
+        
+        public OrderPlacementStateMachine(ProductKey productKey, OrderDescription orderDescription) {
+            setProductKey(productKey);
+            setOrderDescription(orderDescription);
+        }
+    
+        @Override
+        protected WaitOrderPlaced initialState() {
+            return new WaitOrderPlaced();
+        }
+    }
+
+`WaitOrderPlaced` extends `Init` state which expects an initial Command to be added when starting the process (actually,
+when the `start` method is called):
+
+    public class WaitOrderPlaced extends Init {
+        @Override
+        public void start() {
+            addCommand(new PlaceOrder(stateMachine().getProductKey(), stateMachine().getOrderDescription()));
+        }
+    
+        public WaitOrderCreated toWaitOrderCreated() {
+            addCommand(new CreateOrder(stateMachine().getProductKey(), stateMachine().getOrderDescription()));
+            return new WaitOrderCreated();
+        }
+    
+        public OrderPlacementError toError(String description) {
+            return new OrderPlacementError(description);
+        }
+        
+        ...
+    }
+
+Progress made on a process is acknowledged using the `executeTransition` which expects a PM key and a transition chooser
+as arguments. The transition chooser actually calls a method on current state instance which returns the next state.
+The convention of naming the state builder methods `toX` where `X` is the name of next state is suggested. Examples of
+those state builders are available in above state implementation example.
+
+The implementation of some of above Command listeners has been omitted for conciseness sake. It essentially consists in
+retrieving an Aggregate from storage, calling an operation on it and storing the updated Aggregate. The operation then
+adds the expected Domain Events.

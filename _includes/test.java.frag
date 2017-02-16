@@ -1,30 +1,19 @@
-...
+public class ProductManagementTest extends MetaApplicationTest {
 
-@Test
-public void placingOrderCreatesOrder() {
-    givenContext(); // Initializes testing runtime
-    givenAvailableProduct();
-    whenPlacingOrder();
-    thenOrderCreated();
+    @Override
+    protected void registerComponents() {
+        configuration.registerAggregate(new TestConfigurationBuilder()
+                .withConfiguration(new ProductConfiguration())
+                .withData(Product.Data.class)
+                .build());
+
+        configuration.registerWorkflow(new ProductManagement());
+    }
+
+    @Test
+    public void productCanBeCreated() {
+        ProductKey productKey = new ProductKey("product-id");
+        processAndAssertSuccess(new CreateProduct(productKey));
+        assertThat(find(Product.class, productKey), notNullValue());
+    }
 }
-
-private void givenAvailableProduct() {
-    productKey = new ProductKey("product-1");
-    processAndAssertSuccess(new CreateProduct(productKey));
-    processAndAssertSuccess(new AddUnits(productKey, 10));
-}
-
-private void whenPlacingOrder() {
-    description = new OrderDescription();
-    description.reference = "ref";
-    description.units = 1;
-    processAndAssertSuccess(new PlaceOrder(productKey, description));
-}
-
-private void thenOrderCreated() {
-    OrderKey orderKey = new OrderKey(productKey, description.reference);
-    Order order = getEventually(Order.class, orderKey);
-    assertThat(order, notNullValue());
-}
-
-...

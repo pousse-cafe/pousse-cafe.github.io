@@ -14,9 +14,12 @@ title: Home
   <div class="container">
     <h2>Quick description</h2>
     <p>Pousse-Café is a Java framework that eases the writing of applications following Domain-Driven Design (DDD)
-      methodology. It relies on meta-applications described by almost only Domain logic. Meta-applications can be
-      instantiated as real applications by plugging-in the adapters connecting it to the real world.</p>
+      methodology. It relies on the definition of a meta-application described essentially by Domain logic. Meta-applications can be
+      integrated in real applications by plugging-in the adapters connecting it to the real world.</p>
   </div>
+</section>
+
+<section>
   <div class="container">
     <div class="row">
         <div class="col-md-4">
@@ -42,8 +45,8 @@ title: Home
 <section>
   <div class="container">
     <h2>How does it work?</h2>
-    <h3>1. Implement a meta-application (including Aggregates, Services, work-flows, etc.)</h3>
 
+    <h3>1. Implement a meta-application</h3>
     <div class="panel-group" id="domainGroup" role="tablist" aria-multiselectable="true">
       <div class="panel panel-default">
         <div class="panel-heading" role="tab" id="headingAggregate">
@@ -71,10 +74,22 @@ title: Home
           </div>
         </div>
       </div>
+      <div class="panel panel-default">
+        <div class="panel-heading" role="tab" id="headingConfig">
+          <h4 class="panel-title">
+            <a role="button" data-toggle="collapse" data-parent="#domainGroup" href="#collapseConfig" aria-expanded="false"
+              aria-controls="collapseConfig">Click to see an example of Configuration</a>
+          </h4>
+        </div>
+        <div id="collapseConfig" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingConfig">
+          <div class="panel-body">
+            <pre><code class="java">{% include config.java.frag %}</code></pre>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <h3>2. Test Domain logic</h3>
-
+    <h3>2. Test the Meta-Application</h3>
     <div class="panel-group" id="testGroup" role="tablist" aria-multiselectable="true">
       <div class="panel panel-default">
         <div class="panel-heading" role="tab" id="headingTest">
@@ -91,8 +106,7 @@ title: Home
       </div>
     </div>
 
-    <h3>3. Instantiate the meta-application as an actual application</h3>
-    
+    <h3>3. Integrate the meta-application in an actual application (JAX-RS end-point in a Spring Bean)</h3>
     <div class="panel-group" id="appGroup" role="tablist" aria-multiselectable="true">
       <div class="panel panel-default">
         <div class="panel-heading" role="tab" id="headingApp">
