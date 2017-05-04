@@ -61,7 +61,7 @@ Aggregates*).
 issue when users are for instance expecting feedback on the progress of an operation they triggered. Pousse-Café provides
 Process Managers allowing to keep track of complex processes (see section *Model complex processes*).
 - The consumption of Domain Events or Commands might temporarily fail. In some cases, they should be consumed again to
-resume a process. Pousse-Café provides a mechanism to retrieve and replay Domain Events and Consequences which could not
+resume a process. Pousse-Café provides a mechanism to retrieve and replay Domain Events and Commands which could not
 be successfully handled (see section *Replay Domain-Events and Commands*).
 
 Pousse-Café relies on the definition of a *Meta-Application* which is composed of the Domain implementation as well as
@@ -518,23 +518,23 @@ adds the expected Domain Events.
 
 ## Replay Domain Events and Commands
 
-In Pousse-Café terminology, Domain Events and Commands are called *Consequences* (because they are created following an
-interaction, so they are the consequence of something). Pousse-Café provides a component called the *Consequence
-Replayer*. This component can be used to replay a Consequence i.e. submit it again to be handled by listeners. If the
-Consequence was already handled successfully by a listener, it will not be handled again. The only listeners that will
-handle it again are the ones who failed to consume the consequence up to that moment. The Consequence Replayer can
-be retrieved from Meta-Application Context using the `getConsequenceReplayer` method. Below an example of usage
-of the Consequence Replayer where a Consequence with ID `consequenceId` is replayed:
+In Pousse-Café terminology, Domain Events and Commands are called *Messages*.
+Pousse-Café provides a component called the *Message Replayer*. This component can be used to replay a Message i.e.
+submit it again to be handled by listeners. If the
+Message was already handled successfully by a listener, it will not be handled again. The only listeners that will
+handle it again are the ones who failed to consume the Message up to that moment. The Message Replayer can
+be retrieved from Meta-Application Context using the `getMessageReplayer` method. Below an example of usage
+of the Message Replayer where a Message with ID `messageId` is replayed:
 
-    context.getConsequenceReplayer().replayConsequence("consequenceId");
+    context.getMessageReplayer().replayMessage("messageId");
 
-To replay all consequences that were not successfully consumed by a listener, you can also call
-`replayAllFailedConsequences` which takes no argument.
+To replay all Messages that were not successfully consumed by a listener, you can also call
+`replayAllFailedConsumptions` which takes no argument.
 
 Finally, in order to access the consumption failures, the *Consumption Failure Repository*, available via the Meta-Application
 Context, gives access to the list of failed consumptions.
 
     context.getConsumptionFailureRepository().findAllConsumptionFailures();
 
-The returned list contains objects of class `ConsumptionFailure`. There is one entry per Consequence which consumption
+The returned list contains objects of class `ConsumptionFailure`. There is one entry per Message which consumption
 failed for at least 1 listener.
