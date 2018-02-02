@@ -1,12 +1,11 @@
-public class ProductManagementWorkflow extends Workflow {
+public class ProductManagement extends DomainProcess {
 
     private ProductFactory productFactory;
-    
+
     private ProductRepository productRepository;
-    
-    @CommandListener
+
     public void createProduct(CreateProduct command) {
         Product product = productFactory.buildProductWithNoStock(command.getProductKey());
-        runInTransaction(() -> productRepository.add(product));
+        runInTransaction(Product.class, () -> productRepository.add(product));
     }
 }

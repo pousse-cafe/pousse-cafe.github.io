@@ -14,8 +14,9 @@ title: Home
   <div class="container">
     <h2>Quick description</h2>
     <p>Pousse-Café is a Java framework that eases the writing of applications following Domain-Driven Design (DDD)
-      methodology. It relies on the definition of a meta-application described essentially by Domain logic. Meta-applications can be
-      integrated in real applications by plugging-in the adapters connecting it to the real world.</p>
+      methodology. It relies on the definition of a meta-application described essentially by Domain logic plus related
+      Domain processes. Meta-applications can be integrated in real applications which provide the adapters connecting
+      it to the real world.</p>
   </div>
 </section>
 
@@ -62,10 +63,23 @@ title: Home
         </div>
       </div>
       <div class="panel panel-default">
+        <div class="panel-heading" role="tab" id="headingData">
+          <h4 class="panel-title">
+            <a role="button" data-toggle="collapse" data-parent="#domainGroup" href="#collapseData" aria-expanded="false"
+              aria-controls="collapseOne">Click to see an example of data implementation</a>
+          </h4>
+        </div>
+        <div id="collapseData" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingData">
+          <div class="panel-body">
+            <pre><code class="java">{% include data.java.frag %}</code></pre>
+          </div>
+        </div>
+      </div>
+      <div class="panel panel-default">
         <div class="panel-heading" role="tab" id="headingWorkflow">
           <h4 class="panel-title">
             <a role="button" data-toggle="collapse" data-parent="#domainGroup" href="#collapseWorkflow" aria-expanded="false"
-              aria-controls="collapseOne">Click to see an example of Workflow</a>
+              aria-controls="collapseOne">Click to see an example of Domain process</a>
           </h4>
         </div>
         <div id="collapseWorkflow" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingWorkflow">
@@ -78,7 +92,7 @@ title: Home
         <div class="panel-heading" role="tab" id="headingConfig">
           <h4 class="panel-title">
             <a role="button" data-toggle="collapse" data-parent="#domainGroup" href="#collapseConfig" aria-expanded="false"
-              aria-controls="collapseConfig">Click to see an example of Configuration</a>
+              aria-controls="collapseConfig">Click to see an example of Bundle</a>
           </h4>
         </div>
         <div id="collapseConfig" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingConfig">
@@ -106,7 +120,7 @@ title: Home
       </div>
     </div>
 
-    <h3>3. Integrate the meta-application in an actual application (JAX-RS end-point in a Spring Bean)</h3>
+    <h3>3. Integrate the meta-application in an actual application (Spring Web)</h3>
     <div class="panel-group" id="appGroup" role="tablist" aria-multiselectable="true">
       <div class="panel panel-default">
         <div class="panel-heading" role="tab" id="headingApp">

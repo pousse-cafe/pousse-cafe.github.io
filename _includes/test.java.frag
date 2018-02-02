@@ -1,19 +1,14 @@
 public class ProductManagementTest extends MetaApplicationTest {
 
     @Override
-    protected void registerComponents() {
-        configuration.registerAggregate(new TestConfigurationBuilder()
-                .withConfiguration(new ProductConfiguration())
-                .withData(Product.Data.class)
-                .build());
-
-        configuration.registerWorkflow(new ProductManagement());
+    protected MetaApplicationBundle testBundle() {
+        return new SampleMetaAppBundle();
     }
 
     @Test
     public void productCanBeCreated() {
         ProductKey productKey = new ProductKey("product-id");
-        processAndAssertSuccess(new CreateProduct(productKey));
+        context().getDomainProcess(ProductManagement.class).createProduct(new CreateProduct(productKey));
         assertThat(find(Product.class, productKey), notNullValue());
     }
 }

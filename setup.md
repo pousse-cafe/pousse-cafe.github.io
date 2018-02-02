@@ -42,3 +42,21 @@ the `dependencies` of your POM.
       <version>{{ site.latest_release_version }}</version>
       <scope>test</scope>
     </dependency>
+
+The Spring integration is provided by:
+
+    <dependency>
+      <groupId>org.pousse-cafe-framework</groupId>
+      <artifactId>pousse-cafe-spring</artifactId>
+      <version>{{ site.latest_release_version }}</version>
+    </dependency>
+
+Finally, Spring Data MongoDB integration is provided via:
+
+    <dependency>
+      <groupId>org.pousse-cafe-framework</groupId>
+      <artifactId>pousse-cafe-spring-mongo</artifactId>
+      <version>{{ site.latest_release_version }}</version>
+    </dependency>
+
+which rely on `pousse-cafe-spring` so no need to state both in the POM.
