@@ -465,5 +465,50 @@ previous section).
     
     }
 
-Finally, the Mongo repositories discovery might have to be configured via `@EnableMongoRepositories` annotation (Spring
+Note that, the Mongo repositories discovery might have to be configured via `@EnableMongoRepositories` annotation (Spring
 Boot documentation).
+
+The default bundle needs to be subclassed to replace default implementation by this one:
+
+    import poussecafe.sample.domain.mongo.ProductData;
+    import poussecafe.sample.domain.mongo.ProductDataAccess;
+    import poussecafe.spring.mongo.journal.JournalEntryData;
+    import poussecafe.spring.mongo.journal.JournalEntryDataAccess;
+
+    public class SampleMetaAppMongoBundle extends SampleMetaAppBundle {
+
+        @Override
+        protected void loadCoreImplementations(Set<StorableImplementation> coreImplementations) {
+            coreImplementations.add(new StorableImplementation.Builder()
+                    .withStorableClass(JournalEntry.class)
+                    .withDataFactory(JournalEntryData::new)
+                    .withDataAccessFactory(JournalEntryDataAccess::new)
+                    .withStorage(MongoDbStorage.instance())
+                    .build());
+        }
+
+        @Override
+        protected void loadImplementations(Set<StorableImplementation> implementations) {
+            implementations.add(new StorableImplementation.Builder()
+                    .withStorableClass(Product.class)
+                    .withDataFactory(ProductData::new)
+                    .withDataAccessFactory(ProductDataAccess::new)
+                    .withStorage(MongoDbStorage.instance())
+                    .build());
+        }
+    }
+
+Finally, Spring configuration must use the new bundle:
+
+    @Configuration
+    @ComponentScan(basePackages = { "poussecafe.spring" })
+    public class AppConfiguration {
+    
+        @Bean
+        public MetaApplicationContext pousseCafeApplicationContext() {
+            MetaApplicationContext context = new MetaApplicationContext();
+            context.loadBundle(new SampleMetaAppMongoBundle());
+            context.start();
+            return context;
+        }
+    }
