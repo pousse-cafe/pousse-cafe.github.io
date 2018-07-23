@@ -1,5 +1,43 @@
+$poussecafe-back-color: #b39c6e;
+$poussecafe-back-color2: #8c6355; /*#8f7056;*/
+$poussecafe-green: #477a60;
+
+body {
+  background-color: $poussecafe-back-color;
+  color: white;
+  font-family: 'Source Sans Pro', sans-serif;
+  font-size: 18px;
+  text-align: justify;
+}
+
+a, a:hover, a:active, a:visited, a:focus {
+  color: $poussecafe-back-color2;
+}
+
+h1 {
+  border-bottom: 1px solid;
+  padding-bottom: 20px;
+  text-transform: uppercase;
+  margin-top: 40px;
+}
+
+h2 {
+  margin-top: 30px;
+  margin-bottom: 20px;
+}
+
 .figure {
   text-align: center;
   margin-top: 20px;
   margin-bottom: 20px;
+}
+
+.jumbotron {
+  background-color: $poussecafe-back-color2;
+
+  h1 {
+    border: none;
+    padding-bottom: 0;
+    margin-top: 20px;
+  }
 }

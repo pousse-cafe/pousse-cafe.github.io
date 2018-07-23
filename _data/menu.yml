@@ -1,8 +1,8 @@
 - title: Home
   url: /
 - title: Downloads
-  url: /downloads
+  url: /downloads/
 - title: Setup
-  url: /doc/setup
+  url: /doc/setup/
 - title: Reference Guide
-  url: /doc/reference-guide
+  url: /doc/reference-guide/

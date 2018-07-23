@@ -1,5 +1,17 @@
-.contact {
-  ul {
-    list-style: none;
+footer {
+  background-color: $poussecafe-back-color2;
+  padding-top: 50px;
+  padding-bottom: 50px;
+  margin-top: 50px;
+
+  a, a:hover, a:active, a:visited, a:focus {
+    color: white;
+  }
+
+  .contact {
+    text-align: right;
+    ul {
+      list-style: none;
+    }
   }
 }

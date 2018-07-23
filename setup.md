@@ -1,7 +1,7 @@
 ---
 layout: page
 title: Setup
-permalink: /doc/setup
+permalink: /doc/setup/
 ---
 
 ## Quick setup

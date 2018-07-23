@@ -1,7 +1,7 @@
 ---
 layout: page
 title: Reference Guide
-permalink: /doc/reference-guide
+permalink: /doc/reference-guide/
 ---
 
 ## Introduction

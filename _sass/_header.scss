@@ -1,3 +1,40 @@
+.navbar {
+  min-height: 80px;
+}
+
+.navbar-nav > li > a {
+  line-height: 50px;
+}
+
 .menu-placeholder {
-  padding-top: 50px;
+  padding-top: 80px;
+}
+
+.navbar-default .navbar-nav > li > a:focus, .navbar-default .navbar-nav > li > a:hover {
+  color: white;
+  background-color: $poussecafe-back-color2;
+  transition: background-color 0.5s ease-out;
+}
+
+.navbar-default .navbar-nav > .active > a, .navbar-default .navbar-nav > .active > a:focus, .navbar-default .navbar-nav > .active > a:hover {
+  color: white;
+  background-color: $poussecafe-back-color2;
+}
+
+.navbar-default .navbar-nav > li > a {
+  color: white;
+  text-transform: uppercase;
+}
+
+.navbar-default {
+  background-color: $poussecafe-back-color;
+  border: none;
+}
+
+.navbar-brand {
+  padding: 5px;
+
+  img {
+    height: 70px;
+  }
 }

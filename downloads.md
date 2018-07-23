@@ -1,7 +1,7 @@
 ---
 layout: page
 title: Downloads
-permalink: downloads
+permalink: /downloads/
 ---
 
 ## Get source code
