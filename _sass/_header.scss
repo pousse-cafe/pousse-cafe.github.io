@@ -1,5 +1,9 @@
 .navbar {
   min-height: 80px;
+
+  &.navbar-default {
+    border-bottom: solid 1px $poussecafe-back-color2;
+  }
 }
 
 .navbar-nav > li > a {
@@ -36,5 +40,9 @@
 
   img {
     height: 70px;
+
+    @media (max-width: 766px) {
+      height: 100%;
+    }
   }
 }

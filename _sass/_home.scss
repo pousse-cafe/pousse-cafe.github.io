@@ -1,0 +1,26 @@
+.home {
+
+  .jumbotron {
+    background-color: $poussecafe-back-color2;
+  
+    h1 {
+      border: none;
+      padding-bottom: 0;
+      margin-top: 20px;
+    }
+
+    h2 {
+      text-transform: none;
+    }
+  }
+
+  .benefits {
+    h3 {
+      text-transform: uppercase;
+    }
+  }
+
+  h2 {
+    text-transform: uppercase;
+  }
+}

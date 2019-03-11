@@ -3,156 +3,59 @@ layout: default
 title: Home
 ---
 
-<section class="jumbotron">
-  <div class="container">
-    <h1>Pousse-Café</h1>
-    <h2>Making Domain-Driven Design implementation easy</h2>
-  </div>
-</section>
-
-<section>
-  <div class="container">
-    <h2>Quick description</h2>
-    <p>Pousse-Café is a Java framework that eases the writing of applications following Domain-Driven Design (DDD)
-      methodology. It relies on the definition of a meta-application described essentially by Domain logic plus related
-      Domain processes. Meta-applications can be integrated in real applications which provide the adapters connecting
-      it to the real world.</p>
-  </div>
-</section>
-
-<section>
-  <div class="container">
-    <div class="row">
-        <div class="col-md-4">
-            <h3>Clean</h3>
-            <p>Your domain logic is not crippled by data-representation, event handling or storage-related implementation
-            details. This allows to focus on clarity and readability.</p>
-        </div>
-        <div class="col-md-4">
-            <h3>Flexible</h3>
-            <p>Pousse-Café has very few dependencies, reducing dramatically the risk of conflict with other surrounding
-            frameworks. Also, Pousse-Café cohabits well with legacy code, allowing for step-by-step migration to DDD.</p>
-        </div>
-        <div class="col-md-4">
-            <h3>Technology agnostic</h3>
-            <p>Pousse-Café meta-applications are written without relying on storage and/or messaging technologies.
-            This allows to postpone technology choices without impacting the capacity to deliver business value.
-            It also eases the migration from one technology to another.</p>
-        </div>
-    </div>
-  </div>
-</section>
-
-<section>
-  <div class="container">
-    <h2>How does it work?</h2>
-
-    <h3>1. Implement a meta-application</h3>
-    <div class="panel-group" id="domainGroup" role="tablist" aria-multiselectable="true">
-      <div class="panel panel-default">
-        <div class="panel-heading" role="tab" id="headingAggregate">
-          <h4 class="panel-title">
-            <a role="button" data-toggle="collapse" data-parent="#domainGroup" href="#collapseAggregate" aria-expanded="false"
-              aria-controls="collapseOne">Click to see an example of Aggregate</a>
-          </h4>
-        </div>
-        <div id="collapseAggregate" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingAggregate">
-          <div class="panel-body">
-            <pre><code class="java">{% include aggregate.java.frag %}</code></pre>
-          </div>
-        </div>
-      </div>
-      <div class="panel panel-default">
-        <div class="panel-heading" role="tab" id="headingData">
-          <h4 class="panel-title">
-            <a role="button" data-toggle="collapse" data-parent="#domainGroup" href="#collapseData" aria-expanded="false"
-              aria-controls="collapseOne">Click to see an example of data implementation</a>
-          </h4>
-        </div>
-        <div id="collapseData" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingData">
-          <div class="panel-body">
-            <pre><code class="java">{% include data.java.frag %}</code></pre>
-          </div>
-        </div>
-      </div>
-      <div class="panel panel-default">
-        <div class="panel-heading" role="tab" id="headingWorkflow">
-          <h4 class="panel-title">
-            <a role="button" data-toggle="collapse" data-parent="#domainGroup" href="#collapseWorkflow" aria-expanded="false"
-              aria-controls="collapseOne">Click to see an example of Domain process</a>
-          </h4>
-        </div>
-        <div id="collapseWorkflow" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingWorkflow">
-          <div class="panel-body">
-            <pre><code class="java">{% include workflow.java.frag %}</code></pre>
-          </div>
-        </div>
-      </div>
-      <div class="panel panel-default">
-        <div class="panel-heading" role="tab" id="headingConfig">
-          <h4 class="panel-title">
-            <a role="button" data-toggle="collapse" data-parent="#domainGroup" href="#collapseConfig" aria-expanded="false"
-              aria-controls="collapseConfig">Click to see an example of Bundle</a>
-          </h4>
-        </div>
-        <div id="collapseConfig" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingConfig">
-          <div class="panel-body">
-            <pre><code class="java">{% include config.java.frag %}</code></pre>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <h3>2. Test the Meta-Application</h3>
-    <div class="panel-group" id="testGroup" role="tablist" aria-multiselectable="true">
-      <div class="panel panel-default">
-        <div class="panel-heading" role="tab" id="headingTest">
-          <h4 class="panel-title">
-            <a role="button" data-toggle="collapse" data-parent="#testGroup" href="#collapseTest" aria-expanded="false"
-              aria-controls="#collapseTest">Click to see an example of test</a>
-          </h4>
-        </div>
-        <div id="collapseTest" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingTest">
-          <div class="panel-body">
-            <pre><code class="java">{% include test.java.frag %}</code></pre>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <h3>3. Integrate the meta-application in an actual application (Spring Web)</h3>
-    <div class="panel-group" id="appGroup" role="tablist" aria-multiselectable="true">
-      <div class="panel panel-default">
-        <div class="panel-heading" role="tab" id="headingApp">
-          <h4 class="panel-title">
-            <a role="button" data-toggle="collapse" data-parent="#appGroup" href="#collapseApp" aria-expanded="false"
-              aria-controls="#collapseApp">Click to see an example of app code</a>
-          </h4>
-        </div>
-        <div id="collapseApp" class="panel-collapse collapse" role="tabpanel" aria-labelledby="headingApp">
-          <div class="panel-body">
-            <pre><code class="java">{% include app.java.frag %}</code></pre>
-          </div>
-        </div>
-      </div>
-    </div>
-
-  </div>
-</section>
-
-<section>
+<div class="home">
+  <section class="jumbotron">
     <div class="container">
-    <h2>Get started!</h2>
-    <ol>
-      <li><p>Generate a simple app Maven project:</p> <pre><code class="bash">mvn archetype:generate -B \
-    -DarchetypeGroupId=org.pousse-cafe-framework \
-    -DarchetypeArtifactId=pousse-cafe-simple-meta-app-archetype \
-    -DarchetypeVersion={{ site.latest_release_version }} \
-    -DgroupId=test \
-    -DartifactId=test \
-    -Dversion=1.0.0-SNAPSHOT</code></pre></li>
-      <li>Open the project in your favorite IDE or test it already by executing <code class="bash">mvn test</code></li>
-      <li>Voilà</li>
-    </ol>
-  </div>
-</section>
+      <h1>Pousse-Café Framework</h1>
+      <h2>Distil knowledge with your code</h2>
+    </div>
+  </section>
+
+  <section class="benefits">
+    <div class="container">
+      <div class="row">
+          <div class="col-md-4">
+              <h3>Focus on the Domain</h3>
+              <ul>
+                <li>Clean separation of concerns in your code (Domain-Driven Design vs. the rest)</li>
+                <li>Accelerated writing of DDD code</li>
+                <li>Integrated middleware implementing DDD primitives</li>
+              </ul>
+          </div>
+          <div class="col-md-4">
+              <h3>Integrate easily your Domain logic</h3>
+              <ul>
+                <li>Java SE-based</li>
+                <li>Few dependencies (reduced risk of conflict)</li>
+                <li>Facilitated integration with legacy code</li>
+              </ul>
+          </div>
+          <div class="col-md-4">
+              <h3>Stay technology independent</h3>
+              <ul>
+                <li>Technology independent Domain logic</li>
+                <li>Minimal risk on switch of storage and/or messaging technology</li>
+                <li>Increased flexibility for technology choice</li>
+              </ul>
+          </div>
+      </div>
+    </div>
+  </section>
+  
+  <section id="get-started">
+      <div class="container">
+      <h2>Get started!</h2>
+      <ol>
+        <li><p>Generate your first Pousse-Café project:</p> <pre><code class="bash">mvn archetype:generate -B \
+      -DarchetypeGroupId=org.pousse-cafe-framework \
+      -DarchetypeArtifactId=pousse-cafe-simple-meta-app-archetype \
+      -DarchetypeVersion={{ site.latest_release_version }} \
+      -DgroupId=test \
+      -DartifactId=test \
+      -Dversion=0.0.0-SNAPSHOT</code></pre></li>
+        <li>Open the project in your favorite IDE</li>
+        <!-- <li><a href="{{ '/doc/sample-project' | prepend: site.baseurl }}">Take the tour of the code</a></li> -->
+      </ol>
+    </div>
+  </section>
+</div>

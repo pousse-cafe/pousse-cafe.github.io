@@ -7,7 +7,6 @@ body {
   color: white;
   font-family: 'Source Sans Pro', sans-serif;
   font-size: 18px;
-  text-align: justify;
 }
 
 a, a:hover, a:active, a:visited, a:focus {
@@ -30,14 +29,4 @@ h2 {
   text-align: center;
   margin-top: 20px;
   margin-bottom: 20px;
-}
-
-.jumbotron {
-  background-color: $poussecafe-back-color2;
-
-  h1 {
-    border: none;
-    padding-bottom: 0;
-    margin-top: 20px;
-  }
 }

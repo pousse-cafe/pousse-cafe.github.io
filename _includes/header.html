@@ -1,11 +1,17 @@
 <nav class="navbar navbar-default navbar-fixed-top">
   <div class="container">
     <div class="navbar-header">
+      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#menu" aria-expanded="false" aria-controls="navbar">
+        <span class="sr-only">Toggle navigation</span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
       <a class="navbar-brand" href="{{ site.url }}">
         <img alt="Logo" src="{{ '/img/logo.png' | prepend: site.baseurl }}">
       </a>
     </div>
-    <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+    <div class="collapse navbar-collapse" id="menu">
       <ul class="nav navbar-nav navbar-right">
         {% for item in site.data.menu %}
         <li class="{% if page.title == item.title %}active{% endif%}"><a href="{{ item.url }}">{{ item.title }}</a></li>
