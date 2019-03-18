@@ -4,139 +4,298 @@ title: Reference Guide
 permalink: /doc/reference-guide/
 ---
 
+## Content
+
+- [Introduction](#introduction)
+- [Domain-Driven Design in a nutshell](#domain-driven-design-in-a-nutshell)
+- [The purpose of Pousse-Café](#the-purpose-of-pousse-caf)
+- [Implement Aggregates](#implement-aggregates)
+- [Implement Services](#implement-services)
+- [Handle Domain Events](#handle-domain-events)
+- [Handle Commands](#handle-commands)
+- [Run your Bounded Context](#run-your-bounded-context)
+- [Test your Bounded Context](#test-your-bounded-context)
+- [Spring Integration](#spring-integration)
+- [Alternative Storage](#alternative-storage)
+
 ## Introduction
 
 The main purpose of Pousse-Café is to provide tools making the development of high quality and production-ready [Domain-Driven Design
-(DDD)](https://en.wikipedia.org/wiki/Domain-driven_design)-based applications easier. Indeed, while DDD is an effective 
-tool when designing applications with complex business needs, its actual implementation generally brings a set of
+(DDD)](https://en.wikipedia.org/wiki/Domain-driven_design)-based applications easier.
+
+While DDD is an effective 
+tool for designing applications with complex business needs, its actual implementation generally brings a set of
 technical issues/questions that need to be addressed. Those questions and issues require a good knowledge
-of DDD to be properly handled. The next section quickly summarizes DDD, focusing on the elements that Pousse-Café covers,
+of DDD to be properly handled.
+
+The next section quickly summarizes DDD, focusing on the elements that Pousse-Café covers,
 in order to introduce the elements required to describe precisely Pousse-Café's purpose. If you already know
 enough on DDD, feel free to skip it.
 
 ## Domain-Driven Design in a nutshell
 
-Domain-Driven Design (DDD) defines a set of tools targeting better communication, deeper description of concepts, cleaner
-code and scalable software. It relies on the definition of a common language (the *Ubiquitous Language*) for domain
-experts and developers. The *Domain* is the model of the reality an organization is working in. It is described using the
-terms defined by the Ubiquitous Language. When building a software,
-you actually implement the Domain. When applying DDD, domain experts and developers work closely to
-define the Domain together. The Domain and the code evolve simultaneously. DDD defines several design elements:
+Domain-Driven Design (DDD) defines (but is not limited to) a set of tools targeting better communication, deeper
+description of concepts, cleaner
+code and scalable software.
 
-- An *Entity* is an object that has an identity (i.e. it can be referenced) and a life-cycle (it is created, altered and maybe disposed). For instance,
-a product sold in an e-shop is initially created, its description updated, out for sell, sold-out and then finally removed.
-- A *Value Object* (VO) is an object without identity which is fully described by its attributes and is immutable.
+The *Domain Model* is the model of the reality an organization is working in.
+It is described using the terms defined by a common language (the *Ubiquitous Language*) between domain
+experts and developers.
+
+When building a software,
+you actually implement the Domain Model. When applying DDD, domain experts and developers work closely to
+build the Domain Model together. The Domain Model and the code evolve simultaneously. DDD defines several design elements:
+
+- An *Entity* is a component that has an identity (i.e. it can be referenced) and a life-cycle (it is created, altered and maybe disposed). For instance, a product sold in an e-shop is initially created, its description updated, out for sell, sold-out and then finally removed.
+- A *Value Object* (VO) is a component without identity which is fully described by its attributes and is immutable.
 For instance, the price of a product.
-- A *Service* is a stateless object that represents an operation that does not naturally belong to an Entity or a VO.
+- A *Service* is a stateless component that represents an operation that does not naturally belong to an Entity or a VO.
 - An *Aggregate* is a cluster of associated Entities that is treated as a unit, defines strong consistency rules on state
-changes and has a *Root Entity* (the only Entity of the cluster that can be referenced from outside of the cluster).
+changes and has a *Root Entity* (also called *Aggregate Root*; the only Entity of the cluster that can be referenced from outside of the cluster).
 - *Domain Events* are events emitted when an Aggregate is updated. They can then trigger the update of other Aggregates,
 allowing the definition of invariants spanning several Aggregates. No assumption should be made on when a Domain Event
 is actually handled, this means that invariants spanning several Aggregates are not always true at all times (by
-opposition to Aggregate consistency rules which are always true).
+opposition to Aggregate consistency rules which must always be true).
 - *Eventual Consistency* is the fact that, after some time, all invariants, including the ones spanning several Aggregates,
 are true.
-- A *Factory* is a Service that creates Aggregates that are consistent.
-- A *Repository* is a Service that retrieves, stores, updated and removes Aggregates from storage.
+- A *Factory* is a Service that creates Aggregates in an initially consistent state.
+- A *Repository* is a Service that retrieves, stores, updated and removes Aggregates from a given storage.
 
 ## The purpose of Pousse-Café
 
 As mentioned in the introduction, implementing DDD brings a set of technical questions and issues. Below the ones
 that Pousse-Café addresses.
 
-- The implementation of Domain Events (i.e. their publication and consumption) generally involves a messaging infrastructure. It
-is, in a distributed context, not possible to prevent that some messages are actually delivered twice, which means that the same Domain
-Event might be consumed several times. Pousse-Café keeps track of the handling of all Domain Events
-allowing for the detection of duplicate consumptions.
-- When writing Domain logic, the code must be as exempt as possible of technical elements. It is easy to end up in a
+- When writing Domain logic, the code must be as exempt as possible of technical elements (in particular, storage and
+messaging related elements). It is easy to end up in a
 situation where storage-related issues are handled by code that is part of the implementation of a Domain component
-(Aggregate, Service, etc). Pousse-Café defines a way of implementing Aggregates allowing this (see section *Implement
-Aggregates*).
-- The consumption of Domain Events might temporarily fail. In some cases, they should be consumed again to
-resume a process. Pousse-Café provides a mechanism to retrieve and replay Domain Events which could not be successfully
-handled (see section *Replay Domain-Events and Commands*).
+(Aggregate, Service, etc). Pousse-Café defines a way of implementing Entities preventing this (see this [section](#implement-aggregates)). In particular:
+  - Domain logic is decoupled from data implementation;
+  - Data implementation relies on Attributes, reducing the amount of code to write in domain logic.
+- Domain Events should be handled by Domain logic but, at the same time, Domain logic cannot be crippled with technical
+  details like opening a DB transaction and committing it. Pousse-Café provides tools enabling to achieve this in the 
+  cleanest possible way.
+- Evaluating that a given Domain Model implementation actually fits the Domain Model involves domain experts.
+  A GUI or test cases do not always show the full complexity of a given Domain Model.
+  At the same time, it is, most of the time, not a viable option to have domain experts directly review the code.
+  An approach
+  enabled by Pousse-Café is to generate a domain-expert-readable documentation (i.e. a PDF file written in
+  natural language) from the code which can be reviewed by domain experts.
 
-Pousse-Café relies on the definition of a *Meta-Application* which is composed of the Domain implementation as well as
-Domain Processes. The goal is to define the Meta-Application in a way that is as independent as possible of relying
+Pousse-Café relies on the definition of a *Bounded Context* which is composed of the Domain components as well as
+Domain Processes. The goal is to define the Domain logic in a way that is as independent as possible of underlying
 technologies and then instantiate it in an actual application by plugging in the required adapters.
 
 ## Implement Aggregates
 
-An important element in Pousse-Café is the Aggregate and its related Services (i.e. the Factory and the Repository).
-An Aggregate is implemented by a class extending `AggregateRoot<K, D>` where `K` is the type representing the key that
-can be used to reference the Aggregate and `D` is the type representing the data related to the Aggregate. Indeed,
-Pousse-Café decouples as much as possible the Domain model from the data model. This way, the Aggregate's implementation
+The central element in Pousse-Café is the Aggregate and its related Services (i.e. the Factory and the Repository).
+
+### Aggregate Root
+
+The Aggregate Root is implemented by a class extending `AggregateRoot<K, D>` where
+
+- `K` is the type representing the key that
+can be used to reference the Aggregate and
+- `D` is the type representing the data related to the Aggregate.
+
+`D` must implement the interface `EntityAttributes<K>` which defines an attribute for Aggregate's key.
+
+It is recommended to defined ``D`` as a static inner-class of the class defining the Aggregate Root. Indeed, Domain
+logic and data model are strongly linked.
+
+Pousse-Café decouples Domain logic and data implementation. This way, an Entity's implementation
 is not crippled by technical details about how data have to be defined or annotated to fit the underlying storage technology.
-Type `D` must implement the interface `IdentifiedStorableData<K>` which essentially defines a property for Aggregate's key.
 
-Below example describes the Product Aggregate featuring
+Below example describes a Product Aggregate giving
 the possibility to place an Order i.e. remove a number of units from the number of available units. If there are enough
-units available, the `OrderPlaced` Event is added. Otherwise, the `OrderRejected` Event is added.
+units available, the `OrderPlaced` Event is emitted. Otherwise, the `OrderRejected` Event is emitted.
 
-    public class Product extends IdentifiedStorableData<ProductKey, Data> {
+    @Aggregate(
+        factory = ProductFactory.class,
+        repository = ProductRepository.class
+    )
+    public class Product extends EntityAttributes<ProductKey, Product.Attributes> {
         ...
-    
+
         public void placeOrder(OrderDescription description) {
-            int unitsAvailable = getData().getAvailableUnits();
+            int unitsAvailable = attributes().availableUnits().value();
             if (description.units > unitsAvailable) {
-                addDomainEvent(new OrderRejected(getData().getKey(), description));
+                OrderRejected event = newDomainEvent(OrderRejected.class);
+                event.productKey().value(attributes().key().value());
+                event.orderKey().value(description.orderKey);
+                emitDomainEvent(event);
             } else {
-                getData().setAvailableUnits(unitsAvailable - description.units);
-                addDomainEvent(new OrderPlaced(getData().getKey(), description));
+                attributes().availableUnits().value(unitsAvailable - description.units);
+
+                OrderPlaced event = newDomainEvent(OrderPlaced.class);
+                event.productKey().value(attributes().key().value());
+                event.orderKey().value(description.orderKey);
+                emitDomainEvent(event);
             }
         }
-    
-        public static interface Data extends AggregateData<ProductKey> {
+
+        public static interface Attributes extends EntityAttributes<ProductKey> {
             ...
     
-            void setAvailableUnits(int units);
-    
-            int getAvailableUnits();
+            Attribute<Integer> availableUnits();
         }
     }
 
-Note that the interface defining the data of an Aggregate should define properties, each property being defined by a
-setter and a getter or a method returning a `Property` instance. So for example, in above Entity, the property
-`availableUnits` is defined by getter `getAvailableUnits` and setter `setAvailableUnits`.
+An Aggregate is at least composed of
 
-Domain Events are implemented by classes extending the `DomainEvent` class. The following example shows a part of the
-implementation of the `OrderPlaced` Event.
+- an Aggregate Root,
+- a Factory and
+- a Repository.
 
-    public class OrderPlaced extends DomainEvent {
-        private ProductKey productKey;
+The ``@Aggregate`` annotation can be used to explicitly related those 3 components. It is used to configure
+a Bounded Context (see [below](#run-your-bounded-context)).
+
+The ``Product.Attributes`` interface defines the data model of an Entity (and in particular, the Aggregate Root).
+Each attribute is defined by a method
+returning an instance of ``Attribute<V>`` where ``V`` is the type of the attribute.
+
+The ``Attribute`` interface is defined as follows:
+
+    public interface Attribute<V> {
+      
+      V value();
+
+      void value(V value);
+
+      ...
+    }
+
+The ``value`` methods allow to read and write the attribute's value. The interface also defines additional helper
+methods which are not shown here.
+
+Defining attributes with methods returning an ``Attribute`` instance instead of explicitly defining a getter and a
+setter has the following advantages:
+
+- There is a univocal relation between a method and an attribute of the data model,
+- The definition of the data model is cleaner (less lines of code, no names including useless get/set),
+- Simple consistency constraints can be enforced implicitly (no null value, ...).
+
+Below example illustrates an implementation of ``Product.Attributes`` interface.
+
+    @SuppressWarnings("serial")
+    public class ProductData implements Product.Attributes, Serializable {
     
-        private OrderDescription description;
-    
-        public OrderPlaced(ProductKey key, OrderDescription description) {
-            setProductKey(key);
-            setOrderDescription(description);
+        @Override
+        public Attribute<ProductKey> key() {
+            return AttributeBuilder.stringKey(ProductKey.class)
+                .get(() -> productKey)
+                .set(value -> productKey = value)
+                .build();
         }
     
+        private String productKey;
+    
+        @Override
+        public Attribute<Integer> availableUnits() {
+            return AttributeBuilder.simple(Integer.class)
+                .get(() -> availableUnits)
+                .set(value -> availableUnits = value)
+                .build();
+        }
+    
+        private int availableUnits;
+        
         ...
     }
 
+This implementation is serializable and is therefore suitable for Pousse-Café's internal memory-based storage
+(``InternalStorage``). This storage's purpose is testing, it should not be used by production code.
 
-In order to create Aggregates, a Factory is needed. A Factory extends the `Factory<K, A, D>` class where `K` is the type of
-the Aggregate's key, `A` is the Aggregate's type and `D` the type of Aggregate's data. The following example shows a
-Factory for the Product Aggregate. It allows the creation of a Product with no available units initially.
+Domain Events are defined by interfaces extending the `DomainEvent` interface. The following example shows 
+the definition of the `OrderPlaced` Event.
+
+    public interface OrderPlaced extends DomainEvent {
+
+        Attribute<ProductKey> productKey();
+
+        Attribute<OrderKey> orderKey();
+    }
+
+The data model of Domain Events is also defined using attributes. Decoupling
+Domain Event's data model from the actual implementation allows to plug different implementations for different
+messaging technologies without impacting domain logic.
+
+Below example illustrates an implementation of ``OrderPlaced`` interface:
+
+    @MessageImplementation(message = OrderPlaced.class)
+    @SuppressWarnings("serial")
+    public class OrderPlacedData implements Serializable, OrderPlaced {
+    
+        @Override
+        public Attribute<ProductKey> productKey() {
+            return AttributeBuilder.stringKey(ProductKey.class)
+                .get(() -> productId)
+                .set(value -> productId = value)
+                .build();
+        }
+    
+        private String productId;
+    
+        @Override
+        public Attribute<OrderDescription> description() {
+            return AttributeBuilder.simple(OrderDescription.class)
+                .fromAutoAdapting(OrderDescriptionData.class)
+                .get(() -> description)
+                .set(value -> description = value)
+                .build();
+        }
+    
+        private OrderDescriptionData description;
+    }
+
+``@MessageImplementation`` annotation relates the data implementation to a given event. It is used
+[when instantiating a Bounded Context](#run-your-bounded-context). Above implementation is serializable which makes
+it suitable for Pousse-Café's internal messaging (``InternalMessaging``). This messaging's purpose is testing, it should not be used by production code.
+
+
+Aggregate Root's ``newDomainEvent`` method returns a new instance of Domain Event implementation.
+
+Aggregate Root's ``emitDomainEvent`` method queues the Domain Event for emission after the Aggregate is successfully persisted.
+
+### Factory
+
+In order to create Aggregates, a Factory is needed. A Factory extends the `Factory<K, A, D>` class where `K` is the type of the Aggregate's key, `A` is the Aggregate's type and `D` the type of Aggregate's data.
+
+The following example shows a
+Factory for the Product Aggregate. It allows the creation of a Product with initially no available units given its key.
 
     public class ProductFactory extends Factory<ProductKey, Product, Product.Data> {
+
         public Product buildProductWithNoStock(ProductKey productKey) {
             Product product = newAggregateWithKey(productKey);
-            product.setTotalUnits(0);
-            product.setAvailableUnits(0);
+            product.attributes().availableUnits().value(0);
+            ...
             return product;
         }
     }
 
-Finally, Aggregates need to be saved, updated and removed from storage. That's the purpose of the Repository which is
-implemented by extending the `Repository<A, K, D>` class where `A` is the Aggregate's type, `K` is the type of
-the Aggregate's key and `D` the type of Aggregate's data. The following example shows a Repository for the Product
-Aggregate.
+### Repository
 
-    public class ProductRepository extends Repository<Product, ProductKey, Product.Data> {
-      
-    }
+Finally, Aggregates need to be saved, updated or removed from storage. That's the purpose of the Repository which is
+implemented by extending the `Repository<A, K, D>` class where
+
+- `A` is the Aggregate's type,
+- `K` is the type of
+the Aggregate's key and
+- `D` the type of Aggregate's attributes.
+
+Repository's role is to
+
+- wrap the data extracted from storage with Aggregate Roots when reading,
+- unwrap the data to store into storage from Aggregate Roots when writing.
+
+In order to do that, a Repository uses an instance of interface ``EntityDataAccess<K, D>`` where
+
+- `K` is the type of the Aggregate's key and
+- `D` the type of Aggregate's attributes.
+
+The actual implementation of ``EntityDataAccess<K, D>`` is dependent on the storage and has to be defined
+when [configuring the Bounded Context](#run-your-bounded-context).
 
 The Repository class defines the following default operations:
 
@@ -146,301 +305,422 @@ The Repository class defines the following default operations:
     void update(A aggregate);
     void delete(K key);
 
-where `find` returns an Aggregate of null if none was found, `get` returns an Aggregate or throws an exception if the
-Aggregate was not found, `add` allows to add a new Aggregate, `update` updates an existing aggregate and `delete` removes
-an Aggregate from storage if it was present.
+where
 
-## Implement Domain Services
+- `find` returns an Aggregate of null if none was found,
+- `get` returns an Aggregate or throws an exception if the Aggregate was not found,
+- `add` allows to add a new Aggregate,
+- `update` updates an existing aggregate and
+- `delete` removes an Aggregate from storage if it was present.
 
-Domain Services (or simply Services) are defined using POJOs. A Service might depend on other Domain Services. Pousse-Café
-provides a minimal dependency injection feature for the injection of Domain Services (including Repositories and Factories).
-A setter or a field for each dependency is needed. Below example shows `Service1` depending on `Service2` and `Service3`.
-`Service1` has a field with type `Service2` allowing Pousse-Café to inject a `Service2` instance at runtime.
-It also has a setter for a `Service3` instance, leading to the same result but allowing to implement any logic triggered
-at injection time. Note that a method is considered as a setter as soon as it starts with `set` and takes a single
-parameter whose type is an injectable Service.
+The following example shows a Repository for the Product Aggregate.
 
-    public class Service1 {
-        private Service2 service2;
+    public class ProductRepository extends Repository<Product, ProductKey, Product.Attributes> {
 
-        private Service3 service3;
+        public List<Product> findByAvailableUnits(int availableUnits) {
+            return wrap(dataAccess().findByAvailableUnits(availableUnits));
+        }
 
-        public void setService3(Service3 service3) {
-            this.service3 = service3;
+        @Override
+        public ProductDataAccess<Product.Attributes> dataAccess() {
+            return (ProductDataAccess<Product.Attributes>) super.dataAccess();
         }
     }
 
-## Handle Domain Events
+In above example, the additional query method ``findByAvailableUnits`` is defined. When additional query methods
+are expected, a specific data access interface can be defined i.e. an interface extending
+``EntityDataAccess``:
 
-Aggregates and Domain Services provide a good model for the Domain being implemented but are not enough to fully describe
-an application. One missing part is the one actually triggering the different operations implemented by the Aggregates and
-that reacts to Domain Events. This is the purpose of *Domain Processes*.
+    public interface ProductDataAccess<D extends EntityAttributes> extends EntityDataAccess<ProductKey, D> {
 
-A Domain Processes is a non-Domain service which defines listeners that consume Domain Events. The main purpose
-of a Domain Process is to implement commands and route Domain Events to an actual Aggregate or a Domain Service.
-Below example shows a Domain Process which handles the product creation command and handles the `ProductCreated` event.
+        List<D> findByAvailableUnits(int availableUnits);
+    }
 
-    public class ProductManagement extends DomainProcess {
+The data access implementation defined for the Repository must implement the interface.
 
-        private ProductFactory productFactory;
-    
-        private ProductRepository productRepository;
+Below an example of implementation:
 
-        public void createProduct(CreateProduct command) {
-            Product product = productFactory.buildProductWithNoStock(command.getProductKey());
-            runInTransaction(Product.class, () -> productRepository.add(product));
+    @DataAccessImplementation(
+        aggregateRoot = Product.class,
+        dataImplementation = ProductData.class,
+        storageName = InternalStorage.NAME
+    )
+    public class ProductDataAccess extends InternalDataAccess<ProductKey, ProductData> implements ProductDataAccess<ProductData> {
+
+        public List<ProductData> findByAvailableUnits(int availableUnits) {
+            return findAll().stream()
+                .filter(data -> data.availableUnits().value() == availableUnits)
+                .collect(toList());
+        }
+    }
+
+``@DataAccessImplementation`` annotation links attributes and data access implementations with ``Product``
+aggregate. ``storageName`` attribute is used when [instantiating a Pousse-Café Runtime](#run-your-bounded-context).
+Implementations not matching the chosen storage are ignored.
+
+## Implement Services
+
+A Service is defined by a Java class extending class ``Service`` with only the default constructor or an explicit constructor taking no argument.
+
+A Service might depend on other Domain Services. Pousse-Café
+provides a minimal dependency injection feature for the injection of Domain Services (including Repositories and Factories).
+
+Below example illustrates the definition of a service:
+
+    public class Service1 implements Service {
+
+        public Object produceSomethingUsingService2(Object input) {
+            // Use service2
         }
 
-        @DomainEventListener
-        public void doSomething(ProductCreated event) {
+        private Service2 service2;
+    }
+
+When instantiating `Service1`, Pousse-Café will inject the instance of `Service2` at runtime (`Service2` being a
+Service as well).
+
+In some cases, a Service may be abstract because technical details need to be hidden in a specific implementation.
+The ``@ServiceImplementation`` annotation can then be used to annotate the actual implementation and link it to
+the abstract service using attribute ``service``.
+
+
+## Handle Domain Events
+
+Domain Events are directly handled by Domain components i.e. Aggregate Roots, Factories or Repositories.
+
+The ``@MessageListener`` annotation is used to annotate a method that should handle a Domain Event.
+
+### In a Factory
+
+Factory message listeners are used to create Aggregates when handling a Domain Event.
+
+Below example illustrates listeners in a Factory:
+
+    public class MyAggregateFactory extends Factory {
+
+        @MessageListener
+        public MyAggregate createMyAggregate(Event1 event) {
+            ...
+        }
+
+        @MessageListener
+        public Optional<MyAggregate> optionallyCreateMyAggregate(Event2 event) {
+            ...
+        }
+
+        @MessageListener
+        public List<MyAggregate> createMyAggregates(Event3 event) {
             ...
         }
     }
 
+``createMyAggregate`` creates an Aggregate each time an event ``Event1`` is consumed.
+
+``optionallyCreateMyAggregate`` creates conditionally an Aggregate when an event ``Event2`` is consumed. When
+``Optional.empty()`` is returned, no Aggregate is created.
+
+``createMyAggregates`` creates zero, one or several Aggregates each time an event ``Event3`` is consumed.
+
+When new Aggregates are created, Pousse-Café automatically starts a transaction and commits it if the storage requires
+it.
+
+### In an Aggregate Root
+
+Aggregate Root message listeners are used to update Aggregates when handling a Domain Event.
+
+Below example illustrates a listener in an Aggregate Root:
+
+    public class MyAggregate extends AggregateRoot<MyAggregateKey, MyAggregate.Attributes> {
+
+        @MessageListener(runner = UpdateAggregateRunner.class)
+        public void updateAggregate(Event2 event) {
+            ...
+        }
+
+        ...
+    }
+
+``updateAggregate`` updates the Aggregate in function of consumed ``Event1``. Pousse-Café automatically starts a transaction and commits it if the storage requires it.
+
+The identity of the Aggregates to update needs to be extracted from the event. Therefore, message listeners defined in
+Aggregate Roots require a ``AggregateMessageListenerRunner<M, K, A>`` where
+
+- ``M`` is the class of the consumed event,
+- ``K`` is the class of Aggregate's key,
+- ``A`` is the Aggregate Root's class.
+
+A ``AggregateMessageListenerRunner`` is defined as follows:
+
+    public interface AggregateMessageListenerRunner<M, K, A> {
+
+        Set<K> targetAggregatesKeys(M message);
+    
+        Object context(M message, A aggregate);
+    }
+
+``targetAggregatesKeys`` returns the keys of the Aggregates to update given an event.
+
+``context`` returns the data required to execute the update i.e. information coming potentially from other
+Aggregates or external configuration. The use of an update context is not recommended but may be required in some
+cases.
+
+Below example illustrates the runner for the listener in above example:
+
+    public class UpdateAggregateRunner extends DefaultAggregateMessageListenerRunner<Event2, MyAggregateKey , MyAggregate> {
+
+        public Set<MyAggregateKey> targetAggregatesKeys(Event2 message) {
+            ...
+        }
+    }
+
+``DefaultAggregateMessageListenerRunner`` extends ``AggregateMessageListenerRunner`` and simply implies an
+empty update context.
+
+The Aggregates updated by a given event ``Event1`` are identified by the keys returned by ``targetAggregatesKeys``. 
+
+### In a Repository
+
+Repository message listeners are used to remove Aggregates when handling a Domain Event.
+
+Below example illustrates a listener in a Repository:
+
+    public class MyAggregateRepository extends Repository {
+
+        @MessageListener
+        public void deleteAggregate(Event3 event) {
+            ...
+        }
+    }
+
+
+### In a Domain Process
+
+Sometimes, defining message listeners at Factory, Aggregate Root and Repository level is not enough and does not allow
+to define more complex handling patterns. This is the purpose of *Domain Processes*.
+
+A Domain Processes is a non-Domain service which defines listeners that consume Domain Events.
+It is defined by a class extending ``DomainProcess``.
+A Domain Process routes Domain Events to an actual Aggregate Root, Factory or Repository.
+
+Below example shows an example of Domain Process.
+
+    public class MyDomainProcess extends DomainProcess {
+
+        @MessageListener
+        public void doSomething(Event4 event) {
+            runInTransaction(MyAggregate.class, () -> {
+                MyAggregate aggregate = repository.get(event.key().value());
+                aggregate.handle(event);
+                repository.update(aggregate);
+            });
+        }
+
+        private MyAggregateRepository repository;
+    }
+
 The `runInTransaction` method runs the provided `Runnable` in the context of a transaction. What this actually
-means depends on the storage technology used for related Aggregate. For instance, if the Product's data are stored
-directly in memory, no transaction is actually created. On the other hand, if data are stored in a transactional storage system,
-a transaction should be started before the `Runnable` is run and committed just after its successful execution.
+means depends on the storage technology used for related Aggregate.
 
-In the same way as for Domain Services, Pousse-Café will inject all required Services if the related setters are defined.
+Note that above example is equivalent to defining the message listener in ``MyAggregate`` class and defining a runner
+than returns a single key equal to ``event.key().value()``.
 
-## Run your Meta-Application
+In order to keep the code base as small and clean as possible, it is recommended to use Domain Processes only when
+required. In other words, put as many message listeners in Factories, Aggregate Roots and Repositories as possible.
 
-A running Pousse-Café Meta-Application is represented by a *Meta-Application Context* (or *Context*). The Context
-instantiates all required services and injects them when necessary. It also gives access to Aggregates via their related
+
+## Handle Commands
+
+Commands represent external triggers (i.e. not emitted Domain Events) causing the creation, update or removal of Aggregates. A Command is generally represent as a simple object containing all required information to execute the
+command.
+
+Commands are handled by Domain Processes in methods taking the Command as single argument.
+
+Below example shows an example of Domain Process handling a Command.
+
+    public class MyDomainProcess extends DomainProcess {
+
+        public void handleCommand(Command1 command) {
+            runInTransaction(MyAggregate.class, () -> {
+                MyAggregate aggregate = repository.get(event.key().value());
+                aggregate.handle(command);
+                repository.update(aggregate);
+            });
+        }
+
+        private MyAggregateRepository repository;
+    }
+
+
+## Run your Bounded Context
+
+The Aggregates, Services and Domain Processes implementing a given Domain Model are grouped in a Bounded Context.
+
+One or several Bounded Contexts are used to instantiate a Pousse-Café ``Runtime``. Upon creation, the Runtime instantiates all required services and injects them when necessary. It also gives access to Aggregates via their related
 Repository and Factory.
 
-In order to instantiate a Meta-Application Context, a *Meta-Application Bundle* is needed. This is represented
-by a `MetaApplicationBundle` instance. A `MetaApplicationBundle` describes the Domain Processes, Services
-and Aggregates composing the Meta-Application. Below example shows a `MetaApplicationBundle` sub-class which
-describes a Meta-Application composed of an Aggregate, a Domain Service and a Domain Process:
+The simplest way of implementing a Bounded Context is to use a *Configurer*.
 
-    public class SampleMetaAppBundle extends MetaApplicationBundle {
-        @Override
-        protected void loadDefinitions(Set<StorableDefinition> definitions) {
-            definitions.add(new StorableDefinition.Builder()
-                    .withStorableClass(Product.class)
-                    .withFactoryClass(ProductFactory.class)
-                    .withRepositoryClass(ProductRepository.class)
-                    .build());
+Below example illustrates the creation of a Configurer by automatically loading all Domain components and implementations
+available in a given package:
+
+    public class MyBoundedContext {
+    
+        private MyBoundedContext() {
+    
         }
     
-        @Override
-        protected void loadImplementations(Set<StorableImplementation> implementations) {
-            implementations.add(new StorableImplementation.Builder()
-                    .withStorableClass(Product.class)
-                    .withDataFactory(ProductData::new)
-                    .withDataAccessFactory(ProductDataAccess::new)
-                    .withStorage(InMemoryStorage.instance())
-                    .build());
-        }
-
-        @Override
-        protected void loadProcesses(Set<Class<? extends DomainProcess>> processes) {
-            processes.add(ProductManagement.class);
-        }
-    
-        @Override
-        protected void loadServices(Set<Class<?>> services) {
-            services.add(ContentChooser.class);
+        public static BoundedContextConfigurer configure() {
+            return new BoundedContextConfigurer.Builder()
+                    .packagePrefix("poussecafe.myboundedcontext")
+                    .build();
         }
     }
 
-Aggregates are defined by a Factory and a Repository. They are implemented by a Data factory (a `java.util.function.Supplier` which produces empty data
-implementations) and a Data Access factory (a `java.util.function.Supplier` which produces a service that reads the data from an actual storage).
-In above example, the default in-memory storage provided by Pousse-Café is used.
-`ProductData` only needs to be serializable (in the Java sense):
+The Configurer uses the following annotations to discover the Domain components to load:
 
-    public class ProductData implements Product.Data, Serializable {
+- ``@Aggregate``
+- ``@MessageImplementation``
+- ``@DataAccessImplementation``
+- ``@ServiceImplementation``
+- ``@MessageListener``
 
-        @Override
-        public void setAvailableUnits(int units) {
-            this.availableUnits = units;
-        }
+In addition, sub-classes of the following interfaces/classes are automatically loaded as well:
 
-        private int availableUnits = 0;
+- ``Service``
+- ``DomainProcess``
 
-        @Override
-        public int getAvailableUnits() {
-            return availableUnits;
-        }
-    }
+The Configurer is the used to instantiate a Bounded Context and provide it to a Runtime which may, finally, be started:
 
-`ProductDataAccess` must be a subclass of `InMemoryDataAccess`:
+    BoundedContext boundedContext = MyBoundedContext.configure()
+        .defineAndImplementDefault()
+        .build();
+    Runtime runtime = new Runtime.Builder()
+        .withBoundedContexts(boundedContext)
+        .build();
+    runtime.start();
 
-    public class ProductDataAccess extends InMemoryDataAccess<ProductKey, Product.Data> {
-      
-    }
+``defineAndImplementDefault`` method returns a Bounded Context builder that will use internal storage and messaging.
 
-Definition and implementation are separated to allow the choice of different storage implementations.
-This can be done by overriding `loadImplementations`. The other methods should normally not have to be overridden as
-they represent storage independent components.
+A call to ``Runtime``'s ``start`` method actually starts the consumption of emitted Domain Events by message listeners.
+The call to `start` is non blocking.
 
-A Meta-Application Context for above bundle can be created as follows:
+After that, commands may be submitted to Domain Processes and Aggregates retrieved using their Repository.
+Domain Processes and Repositories may be retrieved from ``Runtime``'s ``Environment`` using the following methods:
 
-    MetaApplicationContext context = new MetaApplicationContext();
-    context.loadBundle(new SampleMetaAppBundle());
-    context.start();
+- ``runtime.environment().domainProcess(domainProcessClass)`` where ``domainProcessClass`` is the class of the Domain Process to retrieve,
+- ``runtime.environment().repositoryOf(aggregateRootClass)`` where ``aggregateRootClass`` is the class of the Aggregate's Root.
 
-Note that the call to `start` is non blocking.
+## Test your Bounded Context
 
-You can then start calling Domain Processes and retrieve Aggregates using their Repository. Below
-snippet shows how to create a Product Aggregate and access it via its Repository:
-
-    ProductKey productKey = new ProductKey("product-1");
-    context.getDomainProcess(ProductManagement.class).createProduct(new CreateProduct(productKey));
-    if (result.isSuccess()) {
-        return context.getStorableServices(Product.class).getRepository().get(productKey);
-    } else {
-        throw new Exception("Unable to create Product");
-    }
-
-## Test your Meta-Application
-
-Pousse-Café provides some tools allowing to easily test your Meta-Application with no heavy storage setup required.
+Pousse-Café provides some tools allowing to easily test your Bounded Context with no heavy storage setup required.
 Actually, you might write your whole Domain logic even before deciding what kind of
-storage you will be using. More importantly, it means that you can focus your tests on the Domain.
+storage you would be using. More importantly, it means that you can focus your tests on the Domain.
 
-For testing, it is suggested to use the default in-memory storage implementation provided by Pousse-Café and configure it
-in a base Meta-Application Bundle. When actually integrating your Meta-Application in a real application, you would
-then just choose another implementation using the real storage by subclassing the base Meta-Application Bundle and
-override `loadImplementations` (see above).
+For testing, it is suggested to use the default in-memory storage implementation provided by Pousse-Café.
+When actually integrating your Bounded Context in a real application, you would
+then just choose another implementation [when building your Bounded Context](#run-your-bounded-context).
 
-Pousse-Café provides a `MetaApplicationTest` which can be extended to write (JUnit 4) tests involving parts of the
-Meta-Application. What this class does is essentially instantiating a Meta-Application Context and providing some
-helpers to access its components. Below example shows a test verifying that a product creation actually ends in the
-product being available from the Repository.
+`PousseCafeTest` class can be extended to write (JUnit 4) tests involving parts of the
+Bounded Context. What this class does is essentially instantiate a Runtime and provide some
+helpers to access its components.
 
-    public class ProductManagementTest extends MetaApplicationTest {
+Below example illustrates a test verifying that the handling of "Create Product" command actually implies the new
+product to be available from the Repository.
+
+    public class ProductManagementTest extends PousseCafeTest {
+
         @Override
-        protected MetaApplicationBundle testBundle() {
-            return new SampleMetaAppBundle();
+        protected List<BoundedContext> boundedContexts() {
+            return asList(SampleBoundedContextDefinition.configure().defineAndImplementDefault().build());
         }
 
         @Test
         public void productCanBeCreated() {
             ProductKey productKey = new ProductKey("product-id");
-            context().getDomainProcess(ProductManagement.class).createProduct(new CreateProduct(productKey));
+            productManagement.createProduct(new CreateProduct(productKey));
             assertThat(find(Product.class, productKey), notNullValue());
         }
+        
+        private ProductManagement productManagement;
     }
 
-`context` method provides the running Meta-Application Context created from provided bundle. `getDomainProcess` provides
-the Domain Process instance in the context. Finally, `find` method is a shortcut actually retrieving the Repository
-linked to given Aggregate Root and calling the `find` method of the Repository with given key.
+`boundedContexts` method defines the Bounded Contexts to test.
 
+The instance of ``ProductManagement`` Domain Process handling "Create Product" command is injected automatically.
+
+`find` method is a shortcut that retrieves an Aggregate from its Repository.
 `find` also waits that all
 Domain Events published when executing the command are actually consumed. This ensures that there will be no race
 condition between the asynchronous handling of Domain Events and the fact that the Aggregate being fetched might be
 created as a consequence of the consumption of one of those events.
 
-## Replay Domain Events
+## Spring Integration
 
-In Pousse-Café terminology, Domain Events are a particular case of *Message*.
-Pousse-Café provides a component called the *Message Replayer*. This component can be used to replay a Message i.e.
-submit it again to be handled by listeners. If the
-Message was already handled successfully by a listener, it will not be handled again. The only listeners that will
-handle it again are the ones who failed to consume the Message up to that moment.
-
-The Message Replayer can
-be retrieved from Meta-Application Context using the `getMessageReplayer` method. Below an example of usage
-of the Message Replayer where a Message with ID `messageId` is replayed:
-
-    context.getMessageReplayer().replayMessage("messageId");
-
-To replay all Messages that were not successfully consumed by a listener, you can also call
-`replayAllFailedConsumptions` which takes no argument.
-
-Finally, in order to access the consumption failures, the *Consumption Failure Repository*, available via the Meta-Application
-Context, gives access to the list of failed consumptions.
-
-    context.getConsumptionFailureRepository().findAllConsumptionFailures();
-
-The returned list contains objects of class `ConsumptionFailure`. There is one entry per Message which consumption
-failed for at least 1 listener.
-
-## Spring Boot Integration
-
-Instantiating a Pousse-Café Meta-Application inside of a Spring Boot application is easy. First, you'll need a
+Instantiating a Pousse-Café Runtime inside of a Spring application is easy. First, you'll need a
 Spring configuration class:
 
     @Configuration
     @ComponentScan(basePackages = { "poussecafe.spring" })
     public class AppConfiguration {
-    
+
         @Bean
-        public MetaApplicationContext pousseCafeApplicationContext() {
-            MetaApplicationContext context = new MetaApplicationContext();
-            context.loadBundle(new SampleMetaAppBundle());
-            context.start();
-            return context;
+        public Runtime pousseCafeRuntime() {
+            BoundedContext boundedContext = MyBoundedContext.configure()
+                .defineAndImplementDefault()
+                .build();
+            Runtime runtime = new Runtime.Builder()
+                .withBoundedContexts(boundedContext)
+                .build();
+            runtime.start();
+            return runtime;
         }
     }
 
-The `poussecafe.spring` package needs to be added to the component scan to build the bridge between Pousse-Café and
-Spring's application context (an additional dependency is needed). Basically, this will enable the injection of Pousse-Café services as Spring beans and
-allow the injection of Spring beans in Pousse-Café services. Note that the latter is not recommended as you would be
-bringing non-domain elements inside of your domain logic. The only exception is the injection of Spring Data repositories
-in Data Access services (see below).
+The `poussecafe.spring` package needs to be added to the component scan to build the bridge between Pousse-Café's
+Runtime and Spring's application context (an dependency to ``pousse-cafe-spring`` needs to be added to your project). 
+Basically, this will enable the injection
+of Pousse-Café services as Spring beans and allow the injection of Spring beans in Pousse-Café services.
 
-The `MetaApplicationContext` instance is built and started before being exposed as a regular Spring bean.
+Note that the latter is not recommended as you would be bringing non-domain elements inside of your domain logic.
 
-After that, you can access Domain Processes and Repositories directly from Spring components. Below an example of a
-Spring Web controller exposing a Domain Process command via a REST resource:
+After that, you can access Domain Processes and Repositories directly from Spring components.
+
+Below an example of a Spring Web controller allowing to submit commands to a Domain Process command via a REST resource:
 
     @RestController
     public class RestResource {
 
-        @Autowired
-        private ProductManagement productManagement;
-    
         @RequestMapping(path = "/product", method = RequestMethod.POST)
         public void createProduct(@RequestBody CreateProductView input) {
             ProductKey productKey = new ProductKey(input.key);
             productManagement.createProduct(new CreateProduct(productKey));
         }
-    }
-
-The `ProductManagement` Domain Process is directly available via Spring injection.
-
-## An example of alternative storage: MongoDB
-
-To implement an Aggregate with MongoDB Data and Data Access, Pousse-Café provides an integration (available via an
-additional dependency) with
-[Spring Data MongoDB](https://projects.spring.io/spring-data-mongodb/).
-
-Implementing an Aggregate (e.g. above `Product`) with MongoDB requires 3 additional classes/interfaces:
-
-- The data class, representing the document to insert/retrieve to/from a collection,
-- The data access class, representing the service accessing the documents,
-- the Mongo repository interface required by Spring Data to do its magic.
-
-`ProductData` would look like this:
-
-    public class ProductData implements Product.Data {
-        @Override
-        public void setAvailableUnits(int units) {
-            availableUnits = units;
-        }
-    
-        private int availableUnits;
-    
-        @Override
-        public int getAvailableUnits() {
-            return availableUnits;
-        }
-    }
-
-This is not far from the default implementation presented above. The only difference is that this class does not need
-to be Java-serializable.
-
-`ProductDataAccess` looks like this:
-
-    public class ProductDataAccess extends MongoDataAccess<ProductKey, ProductData, String> {
 
         @Autowired
-        private ProductMongoRepository repository;
-    
+        private ProductManagement productManagement;
+    }
+
+## Alternative Storage
+
+### MongoDB
+
+To implement an Aggregate with MongoDB Data and Data Access, Pousse-Café provides an integration (available via the
+dependency ``pousse-cafe-spring-mongo``) with
+[Spring Data MongoDB](https://projects.spring.io/spring-data-mongodb/).
+
+Implementing an Aggregate (e.g. above `Product`) with MongoDB requires 3 classes/interfaces:
+
+- ``ProductData`` data class, representing the document to insert/retrieve to/from a collection,
+- ``MongoProductDataAccess`` data access class, accessing the documents,
+- ``ProductDataMongoRepository`` interface required by Spring Data to do its magic.
+
+`ProductData` is actually almost identical to the [implementation for internal storage](#aggregate-root). Spring
+Data's ``@Id`` annotation just needs to be added above ``productKey`` field.
+
+`MongoProductDataAccess` looks like this:
+
+    public class MongoProductDataAccess extends MongoDataAccess<ProductKey, ProductData, String> implements  ProductDataAccess<ProductData> {
+
         @Override
         protected String convertKey(ProductKey key) {
             return key.getValue();
@@ -450,65 +730,51 @@ to be Java-serializable.
         protected MongoRepository<ProductData, String> mongoRepository() {
             return repository;
         }
-    
+
+        @Autowired
+        private ProductMongoRepository repository;
+
+        public List<ProductData> findByAvailableUnits(int availableUnits) {
+            return repository.findByAvailableUnits(availableUnits);
+        }
     }
 
-`MongoDataAccess` is a class provided by Pousse-Café filling the gap between the Mongo repository and Pousse-Café's
+`MongoDataAccess` super-class provides fills the gap between the Mongo repository and Pousse-Café's
 Data Access interface. It is also responsible for the conversion between the Domain key and the MongoDB-specific key
-(which should must be Java-serializable). As you can see, the `repository` field is annotated with `@Autowired`. This
-is the particular case where a Pousse-Café component (the Data Access) actually needs direct injection by Spring (see
-previous section).
+(which must be Java-serializable).
 
-`ProductMongoRepository` is the Spring Data interface defined as:
+The `repository` field is annotated with `@Autowired`. This is a particular case where a Pousse-Café component (the Data Access) actually needs direct injection by Spring (see [Spring Integration](#spring-integration)).
+
+`ProductDataMongoRepository` is the Spring Data repository interface defined as follows:
 
     public interface ProductMongoRepository extends MongoRepository<ProductData, String> {
-    
+
+        List<ProductData> findByAvailableUnits(int availableUnits);
     }
 
-Note that, the Mongo repositories discovery might have to be configured via `@EnableMongoRepositories` annotation (Spring
-Boot documentation).
-
-The default bundle needs to be subclassed to replace default implementation by this one:
-
-    import poussecafe.sample.domain.mongo.ProductData;
-    import poussecafe.sample.domain.mongo.ProductDataAccess;
-    import poussecafe.spring.mongo.journal.JournalEntryData;
-    import poussecafe.spring.mongo.journal.JournalEntryDataAccess;
-
-    public class SampleMetaAppMongoBundle extends SampleMetaAppBundle {
-
-        @Override
-        protected void loadCoreImplementations(Set<StorableImplementation> coreImplementations) {
-            coreImplementations.add(new StorableImplementation.Builder()
-                    .withStorableClass(JournalEntry.class)
-                    .withDataFactory(JournalEntryData::new)
-                    .withDataAccessFactory(JournalEntryDataAccess::new)
-                    .withStorage(MongoDbStorage.instance())
-                    .build());
-        }
-
-        @Override
-        protected void loadImplementations(Set<StorableImplementation> implementations) {
-            implementations.add(new StorableImplementation.Builder()
-                    .withStorableClass(Product.class)
-                    .withDataFactory(ProductData::new)
-                    .withDataAccessFactory(ProductDataAccess::new)
-                    .withStorage(MongoDbStorage.instance())
-                    .build());
-        }
-    }
-
-Finally, Spring configuration must use the new bundle:
+The Spring configuration then looks like this:
 
     @Configuration
     @ComponentScan(basePackages = { "poussecafe.spring" })
     public class AppConfiguration {
     
         @Bean
-        public MetaApplicationContext pousseCafeApplicationContext() {
-            MetaApplicationContext context = new MetaApplicationContext();
-            context.loadBundle(new SampleMetaAppMongoBundle());
+        public Runtime pousseCafeRuntime() {
+            MessagingAndStorage messagingAndStorage = new MessagingAndStorage(InternalMessaging.instance(),
+                    SpringMongoDbStorage.instance());
+
+            Runtime context = new Runtime.Builder()
+                .withBoundedContext(MyBoundedContext.configure()
+                        .defineThenImplement()
+                        .messagingAndStorage(messagingAndStorage)
+                        .build())
+                .build();
+    
             context.start();
+    
             return context;
         }
     }
+
+Unlike [previous example](#run-your-bounded-context), ``SpringMongoDbStorage`` is used instead of the default
+storage implementation.
