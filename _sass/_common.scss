@@ -1,6 +1,6 @@
 $poussecafe-back-color: #b39c6e;
 $poussecafe-back-color2: #8c6355; /*#8f7056;*/
-$poussecafe-green: #477a60;
+$poussecafe-link: white;
 
 body {
   background-color: $poussecafe-back-color;
@@ -9,8 +9,16 @@ body {
   font-size: 18px;
 }
 
-a, a:hover, a:active, a:visited, a:focus {
-  color: $poussecafe-back-color2;
+a, a:active, a:visited, a:focus {
+  color: $poussecafe-link;
+  text-decoration: none;
+  border-bottom: 1px dashed $poussecafe-link;
+}
+
+a:hover {
+  color: $poussecafe-link;
+  text-decoration: none;
+  border-bottom: 1px solid $poussecafe-link;
 }
 
 h1 {
