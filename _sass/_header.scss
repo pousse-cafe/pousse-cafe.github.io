@@ -2,7 +2,7 @@
   min-height: 80px;
 
   &.navbar-default {
-    border-bottom: solid 1px $poussecafe-back-color2;
+    border-bottom: solid 1px $poussecafe-back-color;
   }
 }
 
@@ -17,13 +17,13 @@
 
 .navbar-default .navbar-nav > li > a:focus, .navbar-default .navbar-nav > li > a:hover {
   color: white;
-  background-color: $poussecafe-back-color2;
+  background-color: $poussecafe-back-color;
   transition: background-color 0.5s ease-out;
 }
 
 .navbar-default .navbar-nav > .active > a, .navbar-default .navbar-nav > .active > a:focus, .navbar-default .navbar-nav > .active > a:hover {
   color: white;
-  background-color: $poussecafe-back-color2;
+  background-color: $poussecafe-back-color;
 }
 
 .navbar-default .navbar-nav > li > a {
@@ -32,12 +32,17 @@
 }
 
 .navbar-default {
-  background-color: $poussecafe-back-color;
+  background-color: $poussecafe-back-color2;
   border: none;
 }
 
 .navbar-brand {
   padding: 5px;
+  border-bottom: none;
+
+  &:hover {
+    border-bottom: none;
+  }
 
   img {
     height: 70px;
