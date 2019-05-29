@@ -94,11 +94,11 @@ The central element in Pousse-Café is the Aggregate and its related Services (i
 
 The Aggregate Root is implemented by a class extending `AggregateRoot<K, D>` where
 
-- `K` is the type representing the key that
+- `K` is the type representing the identifier that
 can be used to reference the Aggregate and
 - `D` is the type representing the data related to the Aggregate.
 
-`D` must implement the interface `EntityAttributes<K>` which defines an attribute for Aggregate's key.
+`D` must implement the interface `EntityAttributes<K>` which defines an attribute for Aggregate's ID.
 
 It is recommended to defined ``D`` as a static inner-class of the class defining the Aggregate Root. Indeed, Domain
 logic and data model are strongly linked.
@@ -114,27 +114,27 @@ units available, the `OrderPlaced` Event is emitted. Otherwise, the `OrderReject
         factory = ProductFactory.class,
         repository = ProductRepository.class
     )
-    public class Product extends EntityAttributes<ProductKey, Product.Attributes> {
+    public class Product extends EntityAttributes<ProductId, Product.Attributes> {
         ...
 
         public void placeOrder(OrderDescription description) {
             int unitsAvailable = attributes().availableUnits().value();
             if (description.units > unitsAvailable) {
                 OrderRejected event = newDomainEvent(OrderRejected.class);
-                event.productKey().value(attributes().key().value());
-                event.orderKey().value(description.orderKey);
+                event.productId().value(attributes().identifier().value());
+                event.orderId().value(description.orderId);
                 emitDomainEvent(event);
             } else {
                 attributes().availableUnits().value(unitsAvailable - description.units);
 
                 OrderPlaced event = newDomainEvent(OrderPlaced.class);
-                event.productKey().value(attributes().key().value());
-                event.orderKey().value(description.orderKey);
+                event.productId().value(attributes().id().value());
+                event.orderId().value(description.orderId);
                 emitDomainEvent(event);
             }
         }
 
-        public static interface Attributes extends EntityAttributes<ProductKey> {
+        public static interface Attributes extends EntityAttributes<ProductId> {
             ...
     
             Attribute<Integer> availableUnits();
@@ -181,20 +181,20 @@ Below example illustrates an implementation of ``Product.Attributes`` interface.
     public class ProductData implements Product.Attributes, Serializable {
     
         @Override
-        public Attribute<ProductKey> key() {
-            return AttributeBuilder.stringKey(ProductKey.class)
-                .get(() -> productKey)
-                .set(value -> productKey = value)
+        public Attribute<ProductId> id() {
+            return AttributeBuilder.stringId(ProductId.class)
+                .read(() -> productId)
+                .write(value -> productId = value)
                 .build();
         }
     
-        private String productKey;
+        private String productId;
     
         @Override
         public Attribute<Integer> availableUnits() {
-            return AttributeBuilder.simple(Integer.class)
-                .get(() -> availableUnits)
-                .set(value -> availableUnits = value)
+            return AttributeBuilder.single(Integer.class)
+                .read(() -> availableUnits)
+                .write(value -> availableUnits = value)
                 .build();
         }
     
@@ -211,9 +211,9 @@ the definition of the `OrderPlaced` Event.
 
     public interface OrderPlaced extends DomainEvent {
 
-        Attribute<ProductKey> productKey();
+        Attribute<ProductId> productId();
 
-        Attribute<OrderKey> orderKey();
+        Attribute<OrderId> orderId();
     }
 
 The data model of Domain Events is also defined using attributes. Decoupling
@@ -227,10 +227,10 @@ Below example illustrates an implementation of ``OrderPlaced`` interface:
     public class OrderPlacedData implements Serializable, OrderPlaced {
     
         @Override
-        public Attribute<ProductKey> productKey() {
-            return AttributeBuilder.stringKey(ProductKey.class)
-                .get(() -> productId)
-                .set(value -> productId = value)
+        public Attribute<ProductId> productId() {
+            return AttributeBuilder.stringId(ProductId.class)
+                .read(() -> productId)
+                .write(value -> productId = value)
                 .build();
         }
     
@@ -239,9 +239,9 @@ Below example illustrates an implementation of ``OrderPlaced`` interface:
         @Override
         public Attribute<OrderDescription> description() {
             return AttributeBuilder.simple(OrderDescription.class)
-                .fromAutoAdapting(OrderDescriptionData.class)
-                .get(() -> description)
-                .set(value -> description = value)
+                .usingAutoAdapter(OrderDescriptionData.class)
+                .read(() -> description)
+                .write(value -> description = value)
                 .build();
         }
     
@@ -259,15 +259,15 @@ Aggregate Root's ``emitDomainEvent`` method queues the Domain Event for emission
 
 ### Factory
 
-In order to create Aggregates, a Factory is needed. A Factory extends the `Factory<K, A, D>` class where `K` is the type of the Aggregate's key, `A` is the Aggregate's type and `D` the type of Aggregate's data.
+In order to create Aggregates, a Factory is needed. A Factory extends the `Factory<K, A, D>` class where `K` is the type of the Aggregate's ID, `A` is the Aggregate's type and `D` the type of Aggregate's data.
 
 The following example shows a
-Factory for the Product Aggregate. It allows the creation of a Product with initially no available units given its key.
+Factory for the Product Aggregate. It allows the creation of a Product with initially no available units given its ID.
 
-    public class ProductFactory extends Factory<ProductKey, Product, Product.Data> {
+    public class ProductFactory extends Factory<ProductId, Product, Product.Data> {
 
-        public Product buildProductWithNoStock(ProductKey productKey) {
-            Product product = newAggregateWithKey(productKey);
+        public Product buildProductWithNoStock(ProductId productId) {
+            Product product = newAggregateWithId(productId);
             product.attributes().availableUnits().value(0);
             ...
             return product;
@@ -280,8 +280,7 @@ Finally, Aggregates need to be saved, updated or removed from storage. That's th
 implemented by extending the `Repository<A, K, D>` class where
 
 - `A` is the Aggregate's type,
-- `K` is the type of
-the Aggregate's key and
+- `K` is the type of the Aggregate's ID and
 - `D` the type of Aggregate's attributes.
 
 Repository's role is to
@@ -291,7 +290,7 @@ Repository's role is to
 
 In order to do that, a Repository uses an instance of interface ``EntityDataAccess<K, D>`` where
 
-- `K` is the type of the Aggregate's key and
+- `K` is the type of the Aggregate's ID and
 - `D` the type of Aggregate's attributes.
 
 The actual implementation of ``EntityDataAccess<K, D>`` is dependent on the storage and has to be defined
@@ -299,11 +298,11 @@ when [configuring the Bounded Context](#run-your-bounded-context).
 
 The Repository class defines the following default operations:
 
-    A find(K key);
-    A get(K key);
+    A find(K id);
+    A get(K id);
     void add(A aggregate);
     void update(A aggregate);
-    void delete(K key);
+    void delete(K id);
 
 where
 
@@ -315,7 +314,7 @@ where
 
 The following example shows a Repository for the Product Aggregate.
 
-    public class ProductRepository extends Repository<Product, ProductKey, Product.Attributes> {
+    public class ProductRepository extends Repository<Product, ProductId, Product.Attributes> {
 
         public List<Product> findByAvailableUnits(int availableUnits) {
             return wrap(dataAccess().findByAvailableUnits(availableUnits));
@@ -331,7 +330,7 @@ In above example, the additional query method ``findByAvailableUnits`` is define
 are expected, a specific data access interface can be defined i.e. an interface extending
 ``EntityDataAccess``:
 
-    public interface ProductDataAccess<D extends EntityAttributes> extends EntityDataAccess<ProductKey, D> {
+    public interface ProductDataAccess<D extends EntityAttributes> extends EntityDataAccess<ProductId, D> {
 
         List<D> findByAvailableUnits(int availableUnits);
     }
@@ -345,7 +344,7 @@ Below an example of implementation:
         dataImplementation = ProductData.class,
         storageName = InternalStorage.NAME
     )
-    public class ProductDataAccess extends InternalDataAccess<ProductKey, ProductData> implements ProductDataAccess<ProductData> {
+    public class ProductDataAccess extends InternalDataAccess<ProductId, ProductData> implements ProductDataAccess<ProductData> {
 
         public List<ProductData> findByAvailableUnits(int availableUnits) {
             return findAll().stream()
@@ -430,7 +429,7 @@ Aggregate Root message listeners are used to update Aggregates when handling a D
 
 Below example illustrates a listener in an Aggregate Root:
 
-    public class MyAggregate extends AggregateRoot<MyAggregateKey, MyAggregate.Attributes> {
+    public class MyAggregate extends AggregateRoot<MyAggregateId, MyAggregate.Attributes> {
 
         @MessageListener(runner = UpdateAggregateRunner.class)
         public void updateAggregate(Event2 event) {
@@ -446,19 +445,19 @@ The identity of the Aggregates to update needs to be extracted from the event. T
 Aggregate Roots require a ``AggregateMessageListenerRunner<M, K, A>`` where
 
 - ``M`` is the class of the consumed event,
-- ``K`` is the class of Aggregate's key,
+- ``K`` is the class of Aggregate's identifier,
 - ``A`` is the Aggregate Root's class.
 
 A ``AggregateMessageListenerRunner`` is defined as follows:
 
     public interface AggregateMessageListenerRunner<M, K, A> {
 
-        Set<K> targetAggregatesKeys(M message);
+        Set<K> targetAggregatesIds(M message);
     
         Object context(M message, A aggregate);
     }
 
-``targetAggregatesKeys`` returns the keys of the Aggregates to update given an event.
+``targetAggregatesIds`` returns the IDs of the Aggregates to update given an event.
 
 ``context`` returns the data required to execute the update i.e. information coming potentially from other
 Aggregates or external configuration. The use of an update context is not recommended but may be required in some
@@ -466,9 +465,9 @@ cases.
 
 Below example illustrates the runner for the listener in above example:
 
-    public class UpdateAggregateRunner extends DefaultAggregateMessageListenerRunner<Event2, MyAggregateKey , MyAggregate> {
+    public class UpdateAggregateRunner extends DefaultAggregateMessageListenerRunner<Event2, MyAggregateId , MyAggregate> {
 
-        public Set<MyAggregateKey> targetAggregatesKeys(Event2 message) {
+        public Set<MyAggregateId> targetAggregatesIds(Event2 message) {
             ...
         }
     }
@@ -476,7 +475,7 @@ Below example illustrates the runner for the listener in above example:
 ``DefaultAggregateMessageListenerRunner`` extends ``AggregateMessageListenerRunner`` and simply implies an
 empty update context.
 
-The Aggregates updated by a given event ``Event1`` are identified by the keys returned by ``targetAggregatesKeys``. 
+The Aggregates updated by a given event ``Event1`` are identified by the identifiers returned by ``targetAggregatesIds``.
 
 ### In a Repository
 
@@ -509,7 +508,7 @@ Below example shows an example of Domain Process.
         @MessageListener
         public void doSomething(Event4 event) {
             runInTransaction(MyAggregate.class, () -> {
-                MyAggregate aggregate = repository.get(event.key().value());
+                MyAggregate aggregate = repository.get(event.id().value());
                 aggregate.handle(event);
                 repository.update(aggregate);
             });
@@ -522,7 +521,7 @@ The `runInTransaction` method runs the provided `Runnable` in the context of a t
 means depends on the storage technology used for related Aggregate.
 
 Note that above example is equivalent to defining the message listener in ``MyAggregate`` class and defining a runner
-than returns a single key equal to ``event.key().value()``.
+than returns a single ID equal to ``event.id().value()``.
 
 In order to keep the code base as small and clean as possible, it is recommended to use Domain Processes only when
 required. In other words, put as many message listeners in Factories, Aggregate Roots and Repositories as possible.
@@ -541,7 +540,7 @@ Below example shows an example of Domain Process handling a Command.
 
         public void handleCommand(Command1 command) {
             runInTransaction(MyAggregate.class, () -> {
-                MyAggregate aggregate = repository.get(event.key().value());
+                MyAggregate aggregate = repository.get(event.id().value());
                 aggregate.handle(command);
                 repository.update(aggregate);
             });
@@ -636,9 +635,9 @@ product to be available from the Repository.
 
         @Test
         public void productCanBeCreated() {
-            ProductKey productKey = new ProductKey("product-id");
-            productManagement.createProduct(new CreateProduct(productKey));
-            assertThat(find(Product.class, productKey), notNullValue());
+            ProductId productId = new ProductId("product-id");
+            productManagement.createProduct(new CreateProduct(productId));
+            assertThat(find(Product.class, productId), notNullValue());
         }
         
         private ProductManagement productManagement;
@@ -692,8 +691,8 @@ Below an example of a Spring Web controller allowing to submit commands to a Dom
 
         @RequestMapping(path = "/product", method = RequestMethod.POST)
         public void createProduct(@RequestBody CreateProductView input) {
-            ProductKey productKey = new ProductKey(input.key);
-            productManagement.createProduct(new CreateProduct(productKey));
+            ProductId productId = new ProductId(input.id);
+            productManagement.createProduct(new CreateProduct(productId));
         }
 
         @Autowired
@@ -715,15 +714,15 @@ Implementing an Aggregate (e.g. above `Product`) with MongoDB requires 3 classes
 - ``ProductDataMongoRepository`` interface required by Spring Data to do its magic.
 
 `ProductData` is actually almost identical to the [implementation for internal storage](#aggregate-root). Spring
-Data's ``@Id`` annotation just needs to be added above ``productKey`` field.
+Data's ``@Id`` annotation just needs to be added above ``productId`` field.
 
 `MongoProductDataAccess` looks like this:
 
-    public class MongoProductDataAccess extends MongoDataAccess<ProductKey, ProductData, String> implements  ProductDataAccess<ProductData> {
+    public class MongoProductDataAccess extends MongoDataAccess<ProductId, ProductData, String> implements  ProductDataAccess<ProductData> {
 
         @Override
-        protected String convertKey(ProductKey key) {
-            return key.getValue();
+        protected String convertId(ProductId id) {
+            return id.getValue();
         }
     
         @Override
@@ -740,7 +739,7 @@ Data's ``@Id`` annotation just needs to be added above ``productKey`` field.
     }
 
 `MongoDataAccess` super-class provides fills the gap between the Mongo repository and Pousse-Café's
-Data Access interface. It is also responsible for the conversion between the Domain key and the MongoDB-specific key
+Data Access interface. It is also responsible for the conversion between the Domain ID and the MongoDB-specific key
 (which must be Java-serializable).
 
 The `repository` field is annotated with `@Autowired`. This is a particular case where a Pousse-Café component (the Data Access) actually needs direct injection by Spring (see [Spring Integration](#spring-integration)).
