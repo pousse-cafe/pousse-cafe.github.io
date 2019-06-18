@@ -529,7 +529,7 @@ required. In other words, put as many message listeners in Factories, Aggregate 
 
 ## Handle Commands
 
-Commands represent external triggers (i.e. not emitted Domain Events) causing the creation, update or removal of Aggregates. A Command is generally represent as a simple object containing all required information to execute the
+Commands represent external triggers (i.e. not emitted Domain Events) causing the creation, update or removal of Aggregates. A Command is generally represented as a simple object containing all required information to execute the
 command.
 
 Commands are handled by Domain Processes in methods taking the Command as single argument.
@@ -588,7 +588,7 @@ In addition, sub-classes of the following interfaces/classes are automatically l
 - ``Service``
 - ``DomainProcess``
 
-The Configurer is the used to instantiate a Bounded Context and provide it to a Runtime which may, finally, be started:
+The Configurer is used to instantiate a Bounded Context and provide it to a Runtime which may, finally, be started:
 
     BoundedContext boundedContext = MyBoundedContext.configure()
         .defineAndImplementDefault()
