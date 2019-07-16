@@ -11,12 +11,14 @@ permalink: /doc/reference-guide/
 - [The purpose of Pousse-Café](#the-purpose-of-pousse-caf)
 - [Implement Aggregates](#implement-aggregates)
 - [Implement Services](#implement-services)
-- [Handle Domain Events](#handle-domain-events)
-- [Handle Commands](#handle-commands)
+- [Handle Messages](#handle-messages)
 - [Run your Bounded Context](#run-your-bounded-context)
 - [Test your Bounded Context](#test-your-bounded-context)
 - [Spring Integration](#spring-integration)
+- [Custom Message Listeners](#custom-message-listeners)
+- [Message Listeners execution order](#message-listeners-execution-order)
 - [Alternative Storage](#alternative-storage)
+- [Generating DDD documentation](#generating-ddd-documentation)
 
 ## Introduction
 
@@ -73,7 +75,7 @@ situation where storage-related issues are handled by code that is part of the i
   - Domain logic is decoupled from data implementation;
   - Data implementation relies on Attributes, reducing the amount of code to write in domain logic.
 - Domain Events should be handled by Domain logic but, at the same time, Domain logic cannot be crippled with technical
-  details like opening a DB transaction and committing it. Pousse-Café provides tools enabling to achieve this in the 
+  details like opening a DB transaction and committing it. Pousse-Café provides tools enabling this in the 
   cleanest possible way.
 - Evaluating that a given Domain Model implementation actually fits the Domain Model involves domain experts.
   A GUI or test cases do not always show the full complexity of a given Domain Model.
@@ -110,36 +112,38 @@ Below example describes a Product Aggregate giving
 the possibility to place an Order i.e. remove a number of units from the number of available units. If there are enough
 units available, the `OrderPlaced` Event is emitted. Otherwise, the `OrderRejected` Event is emitted.
 
-    @Aggregate(
-        factory = ProductFactory.class,
-        repository = ProductRepository.class
-    )
-    public class Product extends EntityAttributes<ProductId, Product.Attributes> {
-        ...
+```
+@Aggregate(
+    factory = ProductFactory.class,
+    repository = ProductRepository.class
+)
+public class Product extends AggregateRoot<ProductId, Product.Attributes> {
+    ...
 
-        public void placeOrder(OrderDescription description) {
-            int unitsAvailable = attributes().availableUnits().value();
-            if (description.units > unitsAvailable) {
-                OrderRejected event = newDomainEvent(OrderRejected.class);
-                event.productId().value(attributes().identifier().value());
-                event.orderId().value(description.orderId);
-                emitDomainEvent(event);
-            } else {
-                attributes().availableUnits().value(unitsAvailable - description.units);
+    public void placeOrder(OrderDescription description) {
+        int unitsAvailable = attributes().availableUnits().value();
+        if (description.units > unitsAvailable) {
+            OrderRejected event = newDomainEvent(OrderRejected.class);
+            event.productId().value(attributes().identifier().value());
+            event.orderId().value(description.orderId);
+            emitDomainEvent(event);
+        } else {
+            attributes().availableUnits().value(unitsAvailable - description.units);
 
-                OrderPlaced event = newDomainEvent(OrderPlaced.class);
-                event.productId().value(attributes().id().value());
-                event.orderId().value(description.orderId);
-                emitDomainEvent(event);
-            }
-        }
-
-        public static interface Attributes extends EntityAttributes<ProductId> {
-            ...
-    
-            Attribute<Integer> availableUnits();
+            OrderPlaced event = newDomainEvent(OrderPlaced.class);
+            event.productId().value(attributes().id().value());
+            event.orderId().value(description.orderId);
+            emitDomainEvent(event);
         }
     }
+
+    public static interface Attributes extends EntityAttributes<ProductId> {
+        ...
+
+        Attribute<Integer> availableUnits();
+    }
+}
+```
 
 An Aggregate is at least composed of
 
@@ -156,14 +160,16 @@ returning an instance of ``Attribute<V>`` where ``V`` is the type of the attribu
 
 The ``Attribute`` interface is defined as follows:
 
-    public interface Attribute<V> {
-      
-      V value();
+```
+public interface Attribute<V> {
+  
+  V value();
 
-      void value(V value);
+  void value(V value);
 
-      ...
-    }
+  ...
+}
+```
 
 The ``value`` methods allow to read and write the attribute's value. The interface also defines additional helper
 methods which are not shown here.
@@ -177,31 +183,33 @@ setter has the following advantages:
 
 Below example illustrates an implementation of ``Product.Attributes`` interface.
 
-    @SuppressWarnings("serial")
-    public class ProductData implements Product.Attributes, Serializable {
-    
-        @Override
-        public Attribute<ProductId> id() {
-            return AttributeBuilder.stringId(ProductId.class)
-                .read(() -> productId)
-                .write(value -> productId = value)
-                .build();
-        }
-    
-        private String productId;
-    
-        @Override
-        public Attribute<Integer> availableUnits() {
-            return AttributeBuilder.single(Integer.class)
-                .read(() -> availableUnits)
-                .write(value -> availableUnits = value)
-                .build();
-        }
-    
-        private int availableUnits;
-        
-        ...
+```
+@SuppressWarnings("serial")
+public class ProductData implements Product.Attributes, Serializable {
+
+    @Override
+    public Attribute<ProductId> id() {
+        return AttributeBuilder.stringId(ProductId.class)
+            .read(() -> productId)
+            .write(value -> productId = value)
+            .build();
     }
+
+    private String productId;
+
+    @Override
+    public Attribute<Integer> availableUnits() {
+        return AttributeBuilder.single(Integer.class)
+            .read(() -> availableUnits)
+            .write(value -> availableUnits = value)
+            .build();
+    }
+
+    private int availableUnits;
+    
+    ...
+}
+```
 
 This implementation is serializable and is therefore suitable for Pousse-Café's internal memory-based storage
 (``InternalStorage``). This storage's purpose is testing, it should not be used by production code.
@@ -209,12 +217,14 @@ This implementation is serializable and is therefore suitable for Pousse-Café's
 Domain Events are defined by interfaces extending the `DomainEvent` interface. The following example shows 
 the definition of the `OrderPlaced` Event.
 
-    public interface OrderPlaced extends DomainEvent {
+```
+public interface OrderPlaced extends DomainEvent {
 
-        Attribute<ProductId> productId();
+    Attribute<ProductId> productId();
 
-        Attribute<OrderId> orderId();
-    }
+    Attribute<OrderId> orderId();
+}
+```
 
 The data model of Domain Events is also defined using attributes. Decoupling
 Domain Event's data model from the actual implementation allows to plug different implementations for different
@@ -222,31 +232,33 @@ messaging technologies without impacting domain logic.
 
 Below example illustrates an implementation of ``OrderPlaced`` interface:
 
-    @MessageImplementation(message = OrderPlaced.class)
-    @SuppressWarnings("serial")
-    public class OrderPlacedData implements Serializable, OrderPlaced {
-    
-        @Override
-        public Attribute<ProductId> productId() {
-            return AttributeBuilder.stringId(ProductId.class)
-                .read(() -> productId)
-                .write(value -> productId = value)
-                .build();
-        }
-    
-        private String productId;
-    
-        @Override
-        public Attribute<OrderDescription> description() {
-            return AttributeBuilder.simple(OrderDescription.class)
-                .usingAutoAdapter(OrderDescriptionData.class)
-                .read(() -> description)
-                .write(value -> description = value)
-                .build();
-        }
-    
-        private OrderDescriptionData description;
+```
+@MessageImplementation(message = OrderPlaced.class)
+@SuppressWarnings("serial")
+public class OrderPlacedData implements Serializable, OrderPlaced {
+
+    @Override
+    public Attribute<ProductId> productId() {
+        return AttributeBuilder.stringId(ProductId.class)
+            .read(() -> productId)
+            .write(value -> productId = value)
+            .build();
     }
+
+    private String productId;
+
+    @Override
+    public Attribute<OrderDescription> description() {
+        return AttributeBuilder.simple(OrderDescription.class)
+            .usingAutoAdapter(OrderDescriptionData.class)
+            .read(() -> description)
+            .write(value -> description = value)
+            .build();
+    }
+
+    private OrderDescriptionData description;
+}
+```
 
 ``@MessageImplementation`` annotation relates the data implementation to a given event. It is used
 [when instantiating a Bounded Context](#run-your-bounded-context). Above implementation is serializable which makes
@@ -257,6 +269,35 @@ Aggregate Root's ``newDomainEvent`` method returns a new instance of Domain Even
 
 Aggregate Root's ``emitDomainEvent`` method queues the Domain Event for emission after the Aggregate is successfully persisted.
 
+#### Aggregate life-cycle hooks
+
+An Aggregate's life-cycle is modified by 3 operation types:
+
+- Creation
+- Update
+- Deletion
+
+An Aggregate Root may react to those operations by updating its attributes or emitting Domain Events. In order to do so,
+the following methods may be overridden:
+
+- `onAdd`
+- `onUpdate`
+- `onDelete`
+
+Below example illustrates the emission of a Domain Event upon creation of a new `Product` aggregate:
+
+```
+public class Product extends AggregateRoot<ProductId, Product.Attributes> {
+
+    @Override
+    public void onAdd() {
+        ProductCreated event = newDomainEvent(ProductCreated.class);
+        event.productId().valueOf(attributes().identifier());
+        emitDomainEvent(event);
+    }
+}
+```
+
 ### Factory
 
 In order to create Aggregates, a Factory is needed. A Factory extends the `Factory<K, A, D>` class where `K` is the type of the Aggregate's ID, `A` is the Aggregate's type and `D` the type of Aggregate's data.
@@ -264,15 +305,17 @@ In order to create Aggregates, a Factory is needed. A Factory extends the `Facto
 The following example shows a
 Factory for the Product Aggregate. It allows the creation of a Product with initially no available units given its ID.
 
-    public class ProductFactory extends Factory<ProductId, Product, Product.Data> {
+```
+public class ProductFactory extends Factory<ProductId, Product, Product.Data> {
 
-        public Product buildProductWithNoStock(ProductId productId) {
-            Product product = newAggregateWithId(productId);
-            product.attributes().availableUnits().value(0);
-            ...
-            return product;
-        }
+    public Product buildProductWithNoStock(ProductId productId) {
+        Product product = newAggregateWithId(productId);
+        product.attributes().availableUnits().value(0);
+        ...
+        return product;
     }
+}
+```
 
 ### Repository
 
@@ -314,44 +357,50 @@ where
 
 The following example shows a Repository for the Product Aggregate.
 
-    public class ProductRepository extends Repository<Product, ProductId, Product.Attributes> {
+```
+public class ProductRepository extends Repository<Product, ProductId, Product.Attributes> {
 
-        public List<Product> findByAvailableUnits(int availableUnits) {
-            return wrap(dataAccess().findByAvailableUnits(availableUnits));
-        }
-
-        @Override
-        public ProductDataAccess<Product.Attributes> dataAccess() {
-            return (ProductDataAccess<Product.Attributes>) super.dataAccess();
-        }
+    public List<Product> findByAvailableUnits(int availableUnits) {
+        return wrap(dataAccess().findByAvailableUnits(availableUnits));
     }
+
+    @Override
+    public ProductDataAccess<Product.Attributes> dataAccess() {
+        return (ProductDataAccess<Product.Attributes>) super.dataAccess();
+    }
+}
+```
 
 In above example, the additional query method ``findByAvailableUnits`` is defined. When additional query methods
 are expected, a specific data access interface can be defined i.e. an interface extending
 ``EntityDataAccess``:
 
-    public interface ProductDataAccess<D extends EntityAttributes> extends EntityDataAccess<ProductId, D> {
+```
+public interface ProductDataAccess<D extends EntityAttributes> extends EntityDataAccess<ProductId, D> {
 
-        List<D> findByAvailableUnits(int availableUnits);
-    }
+    List<D> findByAvailableUnits(int availableUnits);
+}
+```
 
 The data access implementation defined for the Repository must implement the interface.
 
 Below an example of implementation:
 
-    @DataAccessImplementation(
-        aggregateRoot = Product.class,
-        dataImplementation = ProductData.class,
-        storageName = InternalStorage.NAME
-    )
-    public class ProductDataAccess extends InternalDataAccess<ProductId, ProductData> implements ProductDataAccess<ProductData> {
+```
+@DataAccessImplementation(
+    aggregateRoot = Product.class,
+    dataImplementation = ProductData.class,
+    storageName = InternalStorage.NAME
+)
+public class ProductDataAccess extends InternalDataAccess<ProductId, ProductData> implements ProductDataAccess<ProductData> {
 
-        public List<ProductData> findByAvailableUnits(int availableUnits) {
-            return findAll().stream()
-                .filter(data -> data.availableUnits().value() == availableUnits)
-                .collect(toList());
-        }
+    public List<ProductData> findByAvailableUnits(int availableUnits) {
+        return findAll().stream()
+            .filter(data -> data.availableUnits().value() == availableUnits)
+            .collect(toList());
     }
+}
+```
 
 ``@DataAccessImplementation`` annotation links attributes and data access implementations with ``Product``
 aggregate. ``storageName`` attribute is used when [instantiating a Pousse-Café Runtime](#run-your-bounded-context).
@@ -366,26 +415,31 @@ provides a minimal dependency injection feature for the injection of Domain Serv
 
 Below example illustrates the definition of a service:
 
-    public class Service1 implements Service {
+```
+public class Service1 implements Service {
 
-        public Object produceSomethingUsingService2(Object input) {
-            // Use service2
-        }
-
-        private Service2 service2;
+    public Object produceSomethingUsingService2(Object input) {
+        // Use service2
     }
+
+    private Service2 service2;
+}
+```
 
 When instantiating `Service1`, Pousse-Café will inject the instance of `Service2` at runtime (`Service2` being a
 Service as well).
 
 In some cases, a Service may be abstract because technical details need to be hidden in a specific implementation.
-The ``@ServiceImplementation`` annotation can then be used to annotate the actual implementation and link it to
-the abstract service using attribute ``service``.
+The `@ServiceImplementation` annotation can then be used to annotate the actual implementation and link it to
+the abstract service using attribute `service`.
 
 
-## Handle Domain Events
+## Handle Messages
 
-Domain Events are directly handled by Domain components i.e. Aggregate Roots, Factories or Repositories.
+There are 2 types of messages in Pousse-Café: Domain Events and Commands. In DDD, Domain Events are used implement
+eventual consistency. Commands represent inputs from users or external systems.
+
+Messages may directly be handled by Domain components i.e. Aggregate Roots, Factories or Repositories.
 
 The ``@MessageListener`` annotation is used to annotate a method that should handle a Domain Event.
 
@@ -395,23 +449,25 @@ Factory message listeners are used to create Aggregates when handling a Domain E
 
 Below example illustrates listeners in a Factory:
 
-    public class MyAggregateFactory extends Factory {
+```
+public class MyAggregateFactory extends Factory {
 
-        @MessageListener
-        public MyAggregate createMyAggregate(Event1 event) {
-            ...
-        }
-
-        @MessageListener
-        public Optional<MyAggregate> optionallyCreateMyAggregate(Event2 event) {
-            ...
-        }
-
-        @MessageListener
-        public List<MyAggregate> createMyAggregates(Event3 event) {
-            ...
-        }
+    @MessageListener
+    public MyAggregate createMyAggregate(Event1 event) {
+        ...
     }
+
+    @MessageListener
+    public Optional<MyAggregate> optionallyCreateMyAggregate(Event2 event) {
+        ...
+    }
+
+    @MessageListener
+    public List<MyAggregate> createMyAggregates(Event3 event) {
+        ...
+    }
+}
+```
 
 ``createMyAggregate`` creates an Aggregate each time an event ``Event1`` is consumed.
 
@@ -429,15 +485,17 @@ Aggregate Root message listeners are used to update Aggregates when handling a D
 
 Below example illustrates a listener in an Aggregate Root:
 
-    public class MyAggregate extends AggregateRoot<MyAggregateId, MyAggregate.Attributes> {
+```
+public class MyAggregate extends AggregateRoot<MyAggregateId, MyAggregate.Attributes> {
 
-        @MessageListener(runner = UpdateAggregateRunner.class)
-        public void updateAggregate(Event2 event) {
-            ...
-        }
-
+    @MessageListener(runner = UpdateAggregateRunner.class)
+    public void updateAggregate(Event2 event) {
         ...
     }
+
+    ...
+}
+```
 
 ``updateAggregate`` updates the Aggregate in function of consumed ``Event1``. Pousse-Café automatically starts a transaction and commits it if the storage requires it.
 
@@ -450,12 +508,14 @@ Aggregate Roots require a ``AggregateMessageListenerRunner<M, K, A>`` where
 
 A ``AggregateMessageListenerRunner`` is defined as follows:
 
-    public interface AggregateMessageListenerRunner<M, K, A> {
+```
+public interface AggregateMessageListenerRunner<M, K, A> {
 
-        Set<K> targetAggregatesIds(M message);
-    
-        Object context(M message, A aggregate);
-    }
+    Set<K> targetAggregatesIds(M message);
+
+    Object context(M message, A aggregate);
+}
+```
 
 ``targetAggregatesIds`` returns the IDs of the Aggregates to update given an event.
 
@@ -465,12 +525,14 @@ cases.
 
 Below example illustrates the runner for the listener in above example:
 
-    public class UpdateAggregateRunner extends DefaultAggregateMessageListenerRunner<Event2, MyAggregateId , MyAggregate> {
+```
+public class UpdateAggregateRunner extends DefaultAggregateMessageListenerRunner<Event2, MyAggregateId , MyAggregate> {
 
-        public Set<MyAggregateId> targetAggregatesIds(Event2 message) {
-            ...
-        }
+    public Set<MyAggregateId> targetAggregatesIds(Event2 message) {
+        ...
     }
+}
+```
 
 ``DefaultAggregateMessageListenerRunner`` extends ``AggregateMessageListenerRunner`` and simply implies an
 empty update context.
@@ -483,72 +545,51 @@ Repository message listeners are used to remove Aggregates when handling a Domai
 
 Below example illustrates a listener in a Repository:
 
-    public class MyAggregateRepository extends Repository {
+```
+public class MyAggregateRepository extends Repository {
 
-        @MessageListener
-        public void deleteAggregate(Event3 event) {
-            ...
-        }
+    @MessageListener
+    public void deleteAggregate(Event3 event) {
+        ...
     }
-
+}
+```
 
 ### In a Domain Process
 
 Sometimes, defining message listeners at Factory, Aggregate Root and Repository level is not enough and does not allow
 to define more complex handling patterns. This is the purpose of *Domain Processes*.
 
-A Domain Processes is a non-Domain service which defines listeners that consume Domain Events.
+A Domain Processes is a non-Domain service which defines listeners that consume messages.
 It is defined by a class extending ``DomainProcess``.
-A Domain Process routes Domain Events to an actual Aggregate Root, Factory or Repository.
+A Domain Process routes Domain Events or Commands to an actual Aggregate Root, Factory or Repository.
 
 Below example shows an example of Domain Process.
 
-    public class MyDomainProcess extends DomainProcess {
+```
+public class MyDomainProcess extends DomainProcess {
 
-        @MessageListener
-        public void doSomething(Event4 event) {
-            runInTransaction(MyAggregate.class, () -> {
-                MyAggregate aggregate = repository.get(event.id().value());
-                aggregate.handle(event);
-                repository.update(aggregate);
-            });
-        }
-
-        private MyAggregateRepository repository;
+    @MessageListener
+    public void doSomething(Event4 event) {
+        runInTransaction(MyAggregate.class, () -> {
+            MyAggregate aggregate = repository.get(event.id().value());
+            aggregate.handle(event);
+            repository.update(aggregate);
+        });
     }
+
+    private MyAggregateRepository repository;
+}
+```
 
 The `runInTransaction` method runs the provided `Runnable` in the context of a transaction. What this actually
 means depends on the storage technology used for related Aggregate.
 
-Note that above example is equivalent to defining the message listener in ``MyAggregate`` class and defining a runner
+Note that above example is equivalent to defining the message listener in `MyAggregate` class and defining a runner
 than returns a single ID equal to ``event.id().value()``.
 
 In order to keep the code base as small and clean as possible, it is recommended to use Domain Processes only when
 required. In other words, put as many message listeners in Factories, Aggregate Roots and Repositories as possible.
-
-
-## Handle Commands
-
-Commands represent external triggers (i.e. not emitted Domain Events) causing the creation, update or removal of Aggregates. A Command is generally represented as a simple object containing all required information to execute the
-command.
-
-Commands are handled by Domain Processes in methods taking the Command as single argument.
-
-Below example shows an example of Domain Process handling a Command.
-
-    public class MyDomainProcess extends DomainProcess {
-
-        public void handleCommand(Command1 command) {
-            runInTransaction(MyAggregate.class, () -> {
-                MyAggregate aggregate = repository.get(event.id().value());
-                aggregate.handle(command);
-                repository.update(aggregate);
-            });
-        }
-
-        private MyAggregateRepository repository;
-    }
-
 
 ## Run your Bounded Context
 
@@ -562,18 +603,20 @@ The simplest way of implementing a Bounded Context is to use a *Configurer*.
 Below example illustrates the creation of a Configurer by automatically loading all Domain components and implementations
 available in a given package:
 
-    public class MyBoundedContext {
-    
-        private MyBoundedContext() {
-    
-        }
-    
-        public static BoundedContextConfigurer configure() {
-            return new BoundedContextConfigurer.Builder()
-                    .packagePrefix("poussecafe.myboundedcontext")
-                    .build();
-        }
+```
+public class MyBoundedContext {
+
+    private MyBoundedContext() {
+
     }
+
+    public static BoundedContextConfigurer configure() {
+        return new BoundedContextConfigurer.Builder()
+                .packagePrefix("poussecafe.myboundedcontext")
+                .build();
+    }
+}
+```
 
 The Configurer uses the following annotations to discover the Domain components to load:
 
@@ -590,13 +633,15 @@ In addition, sub-classes of the following interfaces/classes are automatically l
 
 The Configurer is used to instantiate a Bounded Context and provide it to a Runtime which may, finally, be started:
 
-    BoundedContext boundedContext = MyBoundedContext.configure()
-        .defineAndImplementDefault()
-        .build();
-    Runtime runtime = new Runtime.Builder()
-        .withBoundedContexts(boundedContext)
-        .build();
-    runtime.start();
+```
+BoundedContext boundedContext = MyBoundedContext.configure()
+    .defineAndImplementDefault()
+    .build();
+Runtime runtime = new Runtime.Builder()
+    .withBoundedContexts(boundedContext)
+    .build();
+runtime.start();
+```
 
 ``defineAndImplementDefault`` method returns a Bounded Context builder that will use internal storage and messaging.
 
@@ -626,22 +671,24 @@ helpers to access its components.
 Below example illustrates a test verifying that the handling of "Create Product" command actually implies the new
 product to be available from the Repository.
 
-    public class ProductManagementTest extends PousseCafeTest {
+```
+public class ProductManagementTest extends PousseCafeTest {
 
-        @Override
-        protected List<BoundedContext> boundedContexts() {
-            return asList(SampleBoundedContextDefinition.configure().defineAndImplementDefault().build());
-        }
-
-        @Test
-        public void productCanBeCreated() {
-            ProductId productId = new ProductId("product-id");
-            productManagement.createProduct(new CreateProduct(productId));
-            assertThat(find(Product.class, productId), notNullValue());
-        }
-        
-        private ProductManagement productManagement;
+    @Override
+    protected List<BoundedContext> boundedContexts() {
+        return asList(SampleBoundedContextDefinition.configure().defineAndImplementDefault().build());
     }
+
+    @Test
+    public void productCanBeCreated() {
+        ProductId productId = new ProductId("product-id");
+        productManagement.createProduct(new CreateProduct(productId));
+        assertThat(find(Product.class, productId), notNullValue());
+    }
+    
+    private ProductManagement productManagement;
+}
+```
 
 `boundedContexts` method defines the Bounded Contexts to test.
 
@@ -655,25 +702,29 @@ created as a consequence of the consumption of one of those events.
 
 ## Spring Integration
 
-Instantiating a Pousse-Café Runtime inside of a Spring application is easy. First, you'll need a
-Spring configuration class:
+Instantiating a Pousse-Café Runtime inside of a Spring application is easy thanks to Pousse-Café's Spring Bridge
+(provided by `pousse-cafe-spring` project.
 
-    @Configuration
-    @ComponentScan(basePackages = { "poussecafe.spring" })
-    public class AppConfiguration {
+First, you'll need a Spring configuration class:
 
-        @Bean
-        public Runtime pousseCafeRuntime() {
-            BoundedContext boundedContext = MyBoundedContext.configure()
-                .defineAndImplementDefault()
-                .build();
-            Runtime runtime = new Runtime.Builder()
-                .withBoundedContexts(boundedContext)
-                .build();
-            runtime.start();
-            return runtime;
-        }
+```
+@Configuration
+@ComponentScan(basePackages = { "poussecafe.spring" })
+public class AppConfiguration {
+
+    @Bean
+    public Runtime pousseCafeRuntime() {
+        BoundedContext boundedContext = MyBoundedContext.configure()
+            .defineAndImplementDefault()
+            .build();
+        Runtime runtime = new Runtime.Builder()
+            .withBoundedContexts(boundedContext)
+            .build();
+        runtime.start();
+        return runtime;
     }
+}
+```
 
 The `poussecafe.spring` package needs to be added to the component scan to build the bridge between Pousse-Café's
 Runtime and Spring's application context (an dependency to ``pousse-cafe-spring`` needs to be added to your project). 
@@ -686,18 +737,61 @@ After that, you can access Domain Processes and Repositories directly from Sprin
 
 Below an example of a Spring Web controller allowing to submit commands to a Domain Process command via a REST resource:
 
-    @RestController
-    public class RestResource {
+```
+@RestController
+public class RestResource {
 
-        @RequestMapping(path = "/product", method = RequestMethod.POST)
-        public void createProduct(@RequestBody CreateProductView input) {
-            ProductId productId = new ProductId(input.id);
-            productManagement.createProduct(new CreateProduct(productId));
-        }
-
-        @Autowired
-        private ProductManagement productManagement;
+    @RequestMapping(path = "/product", method = RequestMethod.POST)
+    public void createProduct(@RequestBody CreateProductView input) {
+        ProductId productId = new ProductId(input.id);
+        productManagement.createProduct(new CreateProduct(productId));
     }
+
+    @Autowired
+    private ProductManagement productManagement;
+}
+```
+
+## Custom Message Listeners
+
+In some circumstances, for instance when you want to react to a Domain Event in a non-domain service (e.g. a Spring 
+Bean), you may define
+custom message listeners. Custom message listeners are defined in the same way as Factory, Repository and Domain Process
+listeners (i.e. using the `@MessageListener` annotation). The only difference is that you have to register them 
+explicitly.
+
+This is done by using `Runtime`'s `registerListenersOf` method:
+
+    runtime.registerListenersOf(service)
+
+where `service` is the instance of the service defining the listeners.
+
+When integrating with Spring, beans extending `MessageListeningBean` have all their message listeners automatically
+registered upon initialization.
+
+## Message Listeners execution order
+
+No assumption should be made on the order in which message listeners will be executed when handling a given message.
+However, there are priority rules given the type of listener. Below list shows the order in which listener types are executed:
+
+1. Repository listeners
+2. Aggregate listeners
+3. Factory listeners
+4. Domain Process listeners
+5. Custom listeners
+
+So for example, if listeners of all types consume a message `M`, it will first be handled by listeners defined in 
+Repositories, then in listeners defined in Aggregates, etc.
+
+If several listeners are defined per type (e.g. Repository listeners), the order in which they are executed is 
+undefined.
+
+There are several goals behind above priority rule:
+
+- Define "update only" listeners in Aggregates i.e. listeners that will not be executed on Aggregates that were
+previously created while handling the same message;
+- Re-create an aggregate by removing it using a Repository, then re-adding it with a Factory;
+- Prevent the removal by a Repository of an Aggregate previously created by a Factory while handling the same message.
 
 ## Alternative Storage
 
@@ -718,25 +812,27 @@ Data's ``@Id`` annotation just needs to be added above ``productId`` field.
 
 `MongoProductDataAccess` looks like this:
 
-    public class MongoProductDataAccess extends MongoDataAccess<ProductId, ProductData, String> implements  ProductDataAccess<ProductData> {
+```
+public class MongoProductDataAccess extends MongoDataAccess<ProductId, ProductData, String> implements  ProductDataAccess<ProductData> {
 
-        @Override
-        protected String convertId(ProductId id) {
-            return id.getValue();
-        }
-    
-        @Override
-        protected MongoRepository<ProductData, String> mongoRepository() {
-            return repository;
-        }
-
-        @Autowired
-        private ProductMongoRepository repository;
-
-        public List<ProductData> findByAvailableUnits(int availableUnits) {
-            return repository.findByAvailableUnits(availableUnits);
-        }
+    @Override
+    protected String convertId(ProductId id) {
+        return id.getValue();
     }
+
+    @Override
+    protected MongoRepository<ProductData, String> mongoRepository() {
+        return repository;
+    }
+
+    @Autowired
+    private ProductMongoRepository repository;
+
+    public List<ProductData> findByAvailableUnits(int availableUnits) {
+        return repository.findByAvailableUnits(availableUnits);
+    }
+}
+```
 
 `MongoDataAccess` super-class provides fills the gap between the Mongo repository and Pousse-Café's
 Data Access interface. It is also responsible for the conversion between the Domain ID and the MongoDB-specific key
@@ -746,34 +842,257 @@ The `repository` field is annotated with `@Autowired`. This is a particular case
 
 `ProductDataMongoRepository` is the Spring Data repository interface defined as follows:
 
-    public interface ProductMongoRepository extends MongoRepository<ProductData, String> {
+```
+public interface ProductMongoRepository extends MongoRepository<ProductData, String> {
 
-        List<ProductData> findByAvailableUnits(int availableUnits);
-    }
+    List<ProductData> findByAvailableUnits(int availableUnits);
+}
+```
 
 The Spring configuration then looks like this:
 
-    @Configuration
-    @ComponentScan(basePackages = { "poussecafe.spring" })
-    public class AppConfiguration {
-    
-        @Bean
-        public Runtime pousseCafeRuntime() {
-            MessagingAndStorage messagingAndStorage = new MessagingAndStorage(InternalMessaging.instance(),
-                    SpringMongoDbStorage.instance());
+```
+@Configuration
+@ComponentScan(basePackages = { "poussecafe.spring" })
+public class AppConfiguration {
 
-            Runtime context = new Runtime.Builder()
-                .withBoundedContext(MyBoundedContext.configure()
-                        .defineThenImplement()
-                        .messagingAndStorage(messagingAndStorage)
-                        .build())
-                .build();
-    
-            context.start();
-    
-            return context;
-        }
+    @Bean
+    public Runtime pousseCafeRuntime() {
+        MessagingAndStorage messagingAndStorage = new MessagingAndStorage(InternalMessaging.instance(),
+                SpringMongoDbStorage.instance());
+
+        Runtime runtime = new Runtime.Builder()
+            .withBoundedContext(MyBoundedContext.configure()
+                    .defineThenImplement()
+                    .messagingAndStorage(messagingAndStorage)
+                    .build())
+            .build();
+
+        runtime.start();
+
+        return runtime;
     }
+}
+```
 
 Unlike [previous example](#run-your-bounded-context), ``SpringMongoDbStorage`` is used instead of the default
 storage implementation.
+
+## Generating DDD documentation
+
+Pousse-Café Doc generates DDD documentation based on a Pousse-Café project's source code. It uses javadoc
+comments and the actual code to infer higher level documentation understandable by domain experts.
+
+Pousse-Café's Maven plugin provides the `generate-doc` goal. The goal is automatically executed during `package`
+phase.
+
+`generate-doc` goal requires at least 2 properties to be defined:
+
+- `domainName`: a name for the domain being modeled (used as the title of generated document);
+- `basePackage`: the Java package in which Pousse-Café components to be documented are being searched for.
+
+Below an example of configuration of the plugin where above properties are defined:
+
+```
+<plugin>
+  <groupId>org.pousse-cafe-framework</groupId>
+  <artifactId>pousse-cafe-maven-plugin</artifactId>
+  <version>{{ latest_release_version }}</version>
+  <executions>
+    <execution>
+      <goals>
+        <goal>generate-doc</goal>
+      </goals>
+      <phase>package</phase>
+      <configuration>
+        <domainName>iBoost</domainName>
+        <basePackage>sbf.iboost</basePackage>
+      </configuration>
+    </execution>
+  </executions>
+</plugin>
+```
+
+The way components are actually documented is described in the following sections.
+
+### Bounded Context
+
+A Bounded Context is described by a package and all its sub-packages. Therefore, a Bounded Context is documented in
+a `package-info.java` file used to document a package.
+
+`@bounded_context` tag defines the name of the Bounded Context.
+
+The javadoc comment's body is used as the description of the Bounded Context. HTML tags may be used for formatting.
+
+`@short` tag defines the short (i.e. one sentence) description of the Bounded Context. The short description is used
+in the Ubiquitous Language section of the documentation.
+
+Example of `package-info.java` for package `myboundedcontext`:
+
+```
+/**
+ * A long description for MyBoundedContext.
+ *
+ * @bounded_context MyBoundedContext
+ * @short Short description for MyBoundedContext.
+ */
+package myboundedcontext;
+```
+
+### Aggregates
+
+Each Aggregate is described in the javadoc comment on its Aggregate Root class (i.e. a class extending `AggregateRoot`).
+
+The name of the Aggregate is the name of Aggregate Root's class.
+
+The description of the Aggregate is given by javadoc comment's body. HTML tags may be used for formatting.
+
+`@short` tag defines the short (i.e. one sentence) description of the Aggregate. The short description is used
+in the Ubiquitous Language section of the documentation.
+
+Example:
+
+```
+/**
+ * <p>Formatted description of an <em>Aggregate</em>.</p>
+ * 
+ * @short Short description of the Aggregate.
+ */
+```
+
+### Services
+
+Each Service is described in the javadoc comment on its class (i.e. a class extending `Service`).
+
+The name of the Service is the name of Service's class.
+
+The description of the Service is given by javadoc comment's body. HTML tags may be used for formatting.
+
+`@short` tag defines the short (i.e. one sentence) description of the Service. The short description is used
+in the Ubiquitous Language section of the documentation.
+
+Example:
+
+```
+/**
+ * <p>Formatted description of a <em>Service</em>.</p>
+ * 
+ * @short Short description of the Service.
+ */
+```
+
+### Domain Processes
+
+A Domain Process is essentially described by a directed graph where:
+
+- nodes represent the *Steps* of the process i.e. operations being executed by a message listener when handling a 
+message;
+- edges represent a Domain Event being emitted by source node and handled by destination node.
+
+Pousse-Café Doc is able to automatically discover the steps of a Domain Process by analyzing all defined message 
+listeners. However, to build the edge set, Pousse-Café needs some hints.
+
+The hints are given in the form of the list of Domain Events actually emitted by a Message Listener. With this
+information, Pousse-Café Doc can connect the nodes together.
+
+Furthermore, "virtual nodes" may be added to the graph to illustrate the fact that some events are coming from or going 
+to non-domain components (in case of integration with an external system) or another Bounded Context.
+
+#### Implicit Domain Processes
+
+Implicit Domain Processes are defined without a sub-class of `DomainProcess`. All Message Listeners are defined in
+Factories, Aggregate Roots or Repositories.
+
+The name of the Steps are built using Message Listeners' method signature.
+
+The description of each Step is taken from the javadoc comment on the Message Listener's method.
+
+`@process` tag is used to link the step to a given Domain Process. Several `@process` tags may be used to tell that
+the step is part of several Domain Processes.
+
+`@process_description` tag is used on one step of a Domain Process to set the short description of the Domain 
+Process. The first word of the description is the name of the Domain Process this description is linked to.
+
+`@event` tag is used to tell which Domain Event is emitted by the Message Listener. Several `@event` tags may be
+used if several Domain Events may be emitted.
+
+`@from_external` tag on a step implies the creation of a virtual node from which handled Domain Event is coming. 
+This allows to describe situations where the consumed message is coming from a non-Domain component or another Bounded 
+Context.
+
+`@to_external` tag on a step implies the creation of a virtual node to which produced Domain Events are going. This 
+allows to describe situations where the produced messages are going to a non-Domain component or another Bounded 
+Context.
+
+Example of a step part of Domain Process `DomainProcessName` and producing Domain Events `Event1` and `Event2`:
+
+```
+/**
+ * Step description.
+ *
+ * @process DomainProcessName
+ * @process_description DomainProcessName Description of DomainProcessName
+ * @event Event1
+ * @event Event2
+ */
+```
+
+Above comment comes above the method implementing the Message Listener.
+
+#### Explicit Domain Processes
+
+Explicit Domain Processes are defined by sub-classes of `DomainProcess`. All Message Listeners are defined inside
+a `DomainProcess` sub-class. In this case, Pousse-Café Doc requires an additional hint to link the Message Listeners
+declared by the Domain Process class and the actual Steps declared in Factories, Aggregate Roots and Repositories.
+
+The name of the Domain Process class is used as name of the Domain Process.
+
+The javadoc comment on the Domain Process class is used as the description of the Domain Process.
+
+`@step` tag is used to link a Message Listener of the Domain Process to the method actually implementing the Step:
+
+- In the Domain Process class, `@step` tag is used in the Message Listener method and must be followed by a string 
+with the following format: `Component.method` where
+    - `Component` is the name of the containing components i.e. the name of the Aggregate Root, Factory or
+      Repository class.
+    - `method` is the name of the method actually consuming the Domain Event in the component.
+- In the component, the `@step` tag is used on the method called by the Domain Processes' Message Listener and must be 
+followed by a string  with the following format: `Component.method(Event)` where
+    - `Component` is the name of the components i.e. the name of the Aggregate Root, Factory or
+      Repository class.
+    - `method` is the name of the tagged method.
+    - `Event` is the Domain Event consumed (explicitly or not) by the method.
+
+`@from_external` tag implies the creation of a virtual node from which handled Domain Event is coming. This allows
+to describe situations where the consumed message is coming from a non-Domain component or another Bounded Context.
+
+`@to_external` tag implies the creation of a virtual node to which produced Domain Events are going. This allows
+to describe situations where the produced messages are going to a non-Domain component or another Bounded Context.
+
+Example of a step part of Domain Process `DomainProcessName` (i.e. defined by a method of class 
+`DomainProcessName`) consuming `Event1` and producing Domain Events `Event2` and `Event3`:
+
+```
+/**
+ * Step description.
+ *
+ * @step MyAggregate.handle
+ */
+ public void handle(Event1 event) {
+    ...
+ }
+```
+
+Above comment comes above the method implementing the Message Listener. Below snippet shows the comment that must be
+put above the method called by the Message Listener:
+
+```
+/**
+ * @step MyAggregate.handle(Event1)
+ * @event Event2
+ * @event Event3
+ */
+```
+
+Note that documenting an explicit Domain Process is way more cumbersome than documenting an implicit one. This is an 
+additional argument for using explicit Domain Processes as little as possible.
