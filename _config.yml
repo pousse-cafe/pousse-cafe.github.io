@@ -8,7 +8,7 @@ description: >
   is to solve most of those issues allowing developers to focus on the Domain and its implementation.
 baseurl: ""
 url: http://www.pousse-cafe-framework.org
-latest_release_version: 0.7.1
+latest_release_version: 0.8.0
 copyright_date: 2019
 
 # Build settings
