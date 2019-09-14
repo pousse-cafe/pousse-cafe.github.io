@@ -24,7 +24,7 @@ first Bounded Context.
 Pousse-Café is composed of several Maven modules, allowing developers to include only the ones they need. The modules
 are available through [Maven Central Repository](http://search.maven.org).
 
-To create your first Bounded Context, you will need at least to depend on the Core module. Add the following snippet to
+To create your first model, you will need at least to depend on the Core module. Add the following snippet to
 the `dependencies` of your POM.
 
     <dependency>
@@ -33,7 +33,7 @@ the `dependencies` of your POM.
       <version>{{ site.latest_release_version }}</version>
     </dependency>
 
-To be able to test your Bounded Context, a dependency to the Test module is also recommanded. Add the following snippet to
+To be able to test your module, a dependency to the Test module is also recommended. Add the following snippet to
 the `dependencies` of your POM.
 
     <dependency>
@@ -42,3 +42,6 @@ the `dependencies` of your POM.
       <version>{{ site.latest_release_version }}</version>
       <scope>test</scope>
     </dependency>
+
+See Pousse-Café's [example project](https://github.com/pousse-cafe/pousse-cafe/tree/master/pousse-cafe-shop) for more
+details.

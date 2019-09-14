@@ -12,8 +12,8 @@ permalink: /doc/reference-guide/
 - [Implement Aggregates](#implement-aggregates)
 - [Implement Services](#implement-services)
 - [Handle Messages](#handle-messages)
-- [Run your Bounded Context](#run-your-bounded-context)
-- [Test your Bounded Context](#test-your-bounded-context)
+- [Run your Model](#run-your-model)
+- [Test your Model](#test-your-model)
 - [Spring Integration](#spring-integration)
 - [Custom Message Listeners](#custom-message-listeners)
 - [Message Listeners execution order](#message-listeners-execution-order)
@@ -28,7 +28,7 @@ The main purpose of Pousse-Café is to provide tools making the development of h
 While DDD is an effective 
 tool for designing applications with complex business needs, its actual implementation generally brings a set of
 technical issues/questions that need to be addressed. Those questions and issues require a good knowledge
-of DDD to be properly handled.
+of DDD and some experience to be properly handled.
 
 The next section quickly summarizes DDD, focusing on the elements that Pousse-Café covers,
 in order to introduce the elements required to describe precisely Pousse-Café's purpose. If you already know
@@ -62,6 +62,7 @@ opposition to Aggregate consistency rules which must always be true).
 are true.
 - A *Factory* is a Service that creates Aggregates in an initially consistent state.
 - A *Repository* is a Service that retrieves, stores, updated and removes Aggregates from a given storage.
+- A *Module* defines a boundary inside of which there is a bijection between domain components and their name.
 
 ## The purpose of Pousse-Café
 
@@ -84,7 +85,7 @@ situation where storage-related issues are handled by code that is part of the i
   enabled by Pousse-Café is to generate a domain-expert-readable documentation (i.e. a PDF file written in
   natural language) from the code which can be reviewed by domain experts.
 
-Pousse-Café relies on the definition of a *Bounded Context* which is composed of the Domain components as well as
+Pousse-Café relies on the definition of a model which is composed of the Domain components as well as
 Domain Processes. The goal is to define the Domain logic in a way that is as independent as possible of underlying
 technologies and then instantiate it in an actual application by plugging in the required adapters.
 
@@ -151,8 +152,8 @@ An Aggregate is at least composed of
 - a Factory and
 - a Repository.
 
-The ``@Aggregate`` annotation can be used to explicitly related those 3 components. It is used to configure
-a Bounded Context (see [below](#run-your-bounded-context)).
+The ``@Aggregate`` annotation can be used to explicitly link those 3 components. It is used to build
+a Bundle (see [below](#run-your-model)).
 
 The ``Product.Attributes`` interface defines the data model of an Entity (and in particular, the Aggregate Root).
 Each attribute is defined by a method
@@ -260,8 +261,8 @@ public class OrderPlacedData implements Serializable, OrderPlaced {
 }
 ```
 
-``@MessageImplementation`` annotation relates the data implementation to a given event. It is used
-[when instantiating a Bounded Context](#run-your-bounded-context). Above implementation is serializable which makes
+``@MessageImplementation`` annotation links the data implementation to a given event. It is used
+[when instantiating a Bundle](#run-your-model). Above implementation is serializable which makes
 it suitable for Pousse-Café's internal messaging (``InternalMessaging``). This messaging's purpose is testing, it should not be used by production code.
 
 
@@ -337,7 +338,7 @@ In order to do that, a Repository uses an instance of interface ``EntityDataAcce
 - `D` the type of Aggregate's attributes.
 
 The actual implementation of ``EntityDataAccess<K, D>`` is dependent on the storage and has to be defined
-when [configuring the Bounded Context](#run-your-bounded-context).
+when [configuring the Bundle](#run-your-model).
 
 The Repository class defines the following default operations:
 
@@ -403,7 +404,7 @@ public class ProductDataAccess extends InternalDataAccess<ProductId, ProductData
 ```
 
 ``@DataAccessImplementation`` annotation links attributes and data access implementations with ``Product``
-aggregate. ``storageName`` attribute is used when [instantiating a Pousse-Café Runtime](#run-your-bounded-context).
+aggregate. ``storageName`` attribute is used when [instantiating a Pousse-Café Runtime](#run-your-model).
 Implementations not matching the chosen storage are ignored.
 
 ## Implement Services
@@ -591,34 +592,35 @@ than returns a single ID equal to ``event.id().value()``.
 In order to keep the code base as small and clean as possible, it is recommended to use Domain Processes only when
 required. In other words, put as many message listeners in Factories, Aggregate Roots and Repositories as possible.
 
-## Run your Bounded Context
+## Run your model
 
-The Aggregates, Services and Domain Processes implementing a given Domain Model are grouped in a Bounded Context.
+The definitions and implementations of Aggregates and Services of a given Domain Model are grouped in a ``Bundle``.
 
-One or several Bounded Contexts are used to instantiate a Pousse-Café ``Runtime``. Upon creation, the Runtime instantiates all required services and injects them when necessary. It also gives access to Aggregates via their related
-Repository and Factory.
+One or several Bundles may be instantiated in a Pousse-Café ``Runtime``. Upon creation, the 
+Runtime instantiates all required services and injects them when necessary. It also gives access to 
+Aggregates via their Repository and Factory.
 
-The simplest way of implementing a Bounded Context is to use a *Configurer*.
+The simplest way to create a Bundle is to use a ``BundleConfigurer``.
 
-Below example illustrates the creation of a Configurer by automatically loading all Domain components and implementations
-available in a given package:
+Below example illustrates the creation of a BundleConfigurer by automatically loading all Domain components and 
+implementations available in a given package and its sub-packages:
 
 ```
-public class MyBoundedContext {
+public class MyModel {
 
-    private MyBoundedContext() {
+    private MyModel() {
 
     }
 
-    public static BoundedContextConfigurer configure() {
-        return new BoundedContextConfigurer.Builder()
-                .packagePrefix("poussecafe.myboundedcontext")
+    public static BundleConfigurer configure() {
+        return new BundleConfigurer.Builder()
+                .moduleBasePackage("poussecafe.myboundedcontext")
                 .build();
     }
 }
 ```
 
-The Configurer uses the following annotations to discover the Domain components to load:
+The BundleConfigurer uses the following annotations to discover the Domain components to load:
 
 - ``@Aggregate``
 - ``@MessageImplementation``
@@ -631,41 +633,46 @@ In addition, sub-classes of the following interfaces/classes are automatically l
 - ``Service``
 - ``DomainProcess``
 
-The Configurer is used to instantiate a Bounded Context and provide it to a Runtime which may, finally, be started:
+The BundleConfigurer is used to instantiate a Bundle and provide it to a Runtime which may, finally, be 
+started:
 
 ```
-BoundedContext boundedContext = MyBoundedContext.configure()
+Bundle bundle = MyModel.configure()
     .defineAndImplementDefault()
     .build();
 Runtime runtime = new Runtime.Builder()
-    .withBoundedContexts(boundedContext)
+    .withBundle(bundle)
     .build();
 runtime.start();
 ```
 
-``defineAndImplementDefault`` method returns a Bounded Context builder that will use internal storage and messaging.
+``defineAndImplementDefault`` method returns a Bundle builder that will use internal storage and messaging.
 
-A call to ``Runtime``'s ``start`` method actually starts the consumption of emitted Domain Events by message listeners.
-The call to `start` is non blocking.
+A call to ``Runtime``'s ``start`` method actually starts the consumption of emitted Domain Events by message
+listeners. The call to `start` is non blocking.
 
-After that, commands may be submitted to Domain Processes and Aggregates retrieved using their Repository.
-Domain Processes and Repositories may be retrieved from ``Runtime``'s ``Environment`` using the following methods:
+After that, commands may be submitted to the Runtime using `submitCommand` and Aggregates retrieved using their 
+Repository.
 
-- ``runtime.environment().domainProcess(domainProcessClass)`` where ``domainProcessClass`` is the class of the Domain Process to retrieve,
-- ``runtime.environment().repositoryOf(aggregateRootClass)`` where ``aggregateRootClass`` is the class of the Aggregate's Root.
+Repositories are automatically injected by the Runtime in any registered service. For external services (i.e. non-domain
+services), Repositories may be retrieved from ``Runtime``'s ``Environment`` using the following methods:
 
-## Test your Bounded Context
+- ``runtime.environment().domainProcess(domainProcessClass)`` where ``domainProcessClass`` is the class of the Domain Process to retrieve.
 
-Pousse-Café provides some tools allowing to easily test your Bounded Context with no heavy storage setup required.
+A [Spring integration](#spring-integration) exists enabling direct injection of Domain component as regular beans.
+
+## Test your model
+
+Pousse-Café provides tools allowing to easily test your model with no heavy storage setup required.
 Actually, you might write your whole Domain logic even before deciding what kind of
 storage you would be using. More importantly, it means that you can focus your tests on the Domain.
 
 For testing, it is suggested to use the default in-memory storage implementation provided by Pousse-Café.
-When actually integrating your Bounded Context in a real application, you would
-then just choose another implementation [when building your Bounded Context](#run-your-bounded-context).
+When actually integrating your Model in a real application, you would
+then just choose another implementation [when building the Runtime](#run-your-model).
 
-`PousseCafeTest` class can be extended to write (JUnit 4) tests involving parts of the
-Bounded Context. What this class does is essentially instantiate a Runtime and provide some
+`PousseCafeTest` class can be extended to write (JUnit 4) tests involving different Bundles.
+What this class does is essentially instantiate a Runtime and provide some
 helpers to access its components.
 
 Below example illustrates a test verifying that the handling of "Create Product" command actually implies the new
@@ -675,30 +682,29 @@ product to be available from the Repository.
 public class ProductManagementTest extends PousseCafeTest {
 
     @Override
-    protected List<BoundedContext> boundedContexts() {
-        return asList(SampleBoundedContextDefinition.configure().defineAndImplementDefault().build());
+    protected Runtime.Builder runtimeBuilder() {
+        return super.runtimeBuilder()
+                .withBundle(Shop.configure().defineAndImplementDefault().build());
     }
 
     @Test
     public void productCanBeCreated() {
         ProductId productId = new ProductId("product-id");
-        productManagement.createProduct(new CreateProduct(productId));
-        assertThat(find(Product.class, productId), notNullValue());
+        submitCommand(new CreateProduct(productId));
+        assertTrue(getOptional(Product.class, productId).isPresent());
     }
-    
-    private ProductManagement productManagement;
 }
 ```
 
-`boundedContexts` method defines the Bounded Contexts to test.
+Overriding the `runtimeBuilder` method enables the configuration of test Runtime.
 
-The instance of ``ProductManagement`` Domain Process handling "Create Product" command is injected automatically.
+``submitCommand`` directly submits the given command into the Runtime for handling.
 
-`find` method is a shortcut that retrieves an Aggregate from its Repository.
-`find` also waits that all
-Domain Events published when executing the command are actually consumed. This ensures that there will be no race
+`getOptional` method is a shortcut that retrieves an Aggregate from its Repository.
+`getOptional` also waits that all
+messages published when executing the command are actually consumed. This ensures that there will be no race
 condition between the asynchronous handling of Domain Events and the fact that the Aggregate being fetched might be
-created as a consequence of the consumption of one of those events.
+created as a consequence of the consumption of one of those messages.
 
 ## Spring Integration
 
@@ -875,7 +881,7 @@ public class AppConfiguration {
 }
 ```
 
-Unlike [previous example](#run-your-bounded-context), ``SpringMongoDbStorage`` is used instead of the default
+Unlike [previous example](#run-your-model), ``SpringMongoDbStorage`` is used instead of the default
 storage implementation.
 
 ## Generating DDD documentation
@@ -915,28 +921,28 @@ Below an example of configuration of the plugin where above properties are defin
 
 The way components are actually documented is described in the following sections.
 
-### Bounded Context
+### Module
 
-A Bounded Context is described by a package and all its sub-packages. Therefore, a Bounded Context is documented in
-a `package-info.java` file used to document a package.
+A Module is defined by the components with their class in a base package or any of its sub-packages. Therefore,
+a Module is documented by base package's `package-info.java`.
 
-`@bounded_context` tag defines the name of the Bounded Context.
+`@module` tag defines the name of the Module.
 
-The javadoc comment's body is used as the description of the Bounded Context. HTML tags may be used for formatting.
+The javadoc comment's body is used as the description of the Module. HTML tags may be used for formatting.
 
-`@short` tag defines the short (i.e. one sentence) description of the Bounded Context. The short description is used
+`@short` tag defines the short (i.e. one sentence) description of the Module. The short description is used
 in the Ubiquitous Language section of the documentation.
 
-Example of `package-info.java` for package `myboundedcontext`:
+Example of `package-info.java` for package `mymodel`:
 
 ```
 /**
- * A long description for MyBoundedContext.
+ * A long description for MyModel.
  *
- * @bounded_context MyBoundedContext
- * @short Short description for MyBoundedContext.
+ * @module MyModel
+ * @short Short description for MyModel.
  */
-package myboundedcontext;
+package mymodel;
 ```
 
 ### Aggregates
@@ -960,6 +966,9 @@ Example:
  */
 ```
 
+An Aggregate must be part of a documented Module (i.e. it must be defined by a class in the documented Module's base 
+package or one of its sub-packages). Otherwise, it will not be shown.
+
 ### Services
 
 Each Service is described in the javadoc comment on its class (i.e. a class extending `Service`).
@@ -980,6 +989,9 @@ Example:
  * @short Short description of the Service.
  */
 ```
+
+An Service must be part of a documented Module (i.e. it must be defined by a class in the documented Module's base 
+package or one of its sub-packages). Otherwise, it will not be shown.
 
 ### Domain Processes
 
@@ -1093,6 +1105,9 @@ put above the method called by the Message Listener:
  * @event Event3
  */
 ```
+
+An explicit Domain Process must be part of a documented Module (i.e. it must be defined by a class in the documented 
+Module's base package or one of its sub-packages). Otherwise, it will not be shown.
 
 Note that documenting an explicit Domain Process is way more cumbersome than documenting an implicit one. This is an 
 additional argument for using explicit Domain Processes as little as possible.
