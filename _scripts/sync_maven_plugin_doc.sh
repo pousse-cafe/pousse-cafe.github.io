@@ -10,3 +10,4 @@ fi
 rm -rf $PLUGIN_DOC_PATH/*
 ( cd ../pousse-cafe/pousse-cafe-maven-plugin ; mvn clean site )
 cp -r ../pousse-cafe/pousse-cafe-maven-plugin/target/site/* $PLUGIN_DOC_PATH
+find pousse-cafe-maven-plugin -name *.xcf -delete
