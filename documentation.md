@@ -889,8 +889,8 @@ storage implementation.
 Pousse-Café Doc generates DDD documentation based on a Pousse-Café project's source code. It uses javadoc
 comments and the actual code to infer higher level documentation understandable by domain experts.
 
-Pousse-Café's Maven plugin provides the `generate-doc` goal. The goal is automatically executed during `package`
-phase.
+Pousse-Café's [Maven plugin](/pousse-cafe-maven-plugin/plugin-info.html) provides the `generate-doc` goal.
+The goal is automatically executed during `package` phase.
 
 `generate-doc` goal requires at least 2 properties to be defined:
 
