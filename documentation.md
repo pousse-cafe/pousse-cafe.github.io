@@ -19,6 +19,7 @@ permalink: /doc/reference-guide/
 - [Message Listeners execution order](#message-listeners-execution-order)
 - [Alternative Storage](#alternative-storage)
 - [Generating DDD documentation](#generating-ddd-documentation)
+- [Quick Creation of Aggregates](#quick-creation-of-aggregates)
 
 ## Introduction
 
@@ -1111,3 +1112,12 @@ Module's base package or one of its sub-packages). Otherwise, it will not be sho
 
 Note that documenting an explicit Domain Process is way more cumbersome than documenting an implicit one. This is an 
 additional argument for using explicit Domain Processes as little as possible.
+
+## Quick Creation of Aggregates
+
+The addition of a single new Aggregate to a Model requires the writing of several classes. In order to accelerate this
+process, Pousse-Café's [Maven plugin](/pousse-cafe-maven-plugin/plugin-info.html) provides the `add-aggregate` goal
+which creates all required classes as well as adapters for the [storage](#alternative-storage) if needed.
+
+The new Aggregate is initially created without any attribute but the (required) identifier attribute.
+See [the documentation of add-aggregate](/pousse-cafe-maven-plugin/add-aggregate-mojo.html) for more details.
