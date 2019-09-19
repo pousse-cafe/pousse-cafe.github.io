@@ -41,7 +41,33 @@ title: Home
       </div>
     </div>
   </section>
-  
+
+  <section id="big-picture">
+    <div class="container">
+      <div class="row">
+        <div class="col-md-12">
+            <h2>How it works</h2>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-md-8">
+          <img src="img/big_picture.svg">
+        </div>
+        <div class="col-md-4">
+          <ul>
+            <li>Commands are submitted to the Runtime</li>
+            <li>Commands are handled by Aggregates using Message Listeners</li>
+            <li>Aggregates emit Domain Events</li>
+            <li>The set of Message Listeners executed following the submission of a Command defines a Domain Process</li>
+            <li>Aggregates may be grouped in Modules</li>
+            <li>Domain Events may cross Modules borders</li>
+          </ul>
+          <p>See the <a href="/doc/reference-guide">reference guide</a> for more information.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <section id="get-started">
       <div class="container">
       <h2>Get started!</h2>
