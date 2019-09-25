@@ -94,8 +94,10 @@ technologies and then instantiate it in an actual application by plugging in the
 
 <img src="/img/big_picture.svg">
 
-- [Commands](#handle-messages) are submitted to the [Runtime](#run-your-model)
-- Commands are handled by [Aggregates](#implement-aggregates) using [Message Listeners](#handle-messages)
+- A Pousse-Café model (i.e. a set of [Aggregates](#implement-aggregates) and [Services](#implement-services)) is
+  executed by a [Runtime](#run-your-model)
+- [Commands](#handle-messages) are submitted to the Runtime
+- Commands are handled by the Aggregates using [Message Listeners](#handle-messages)
 - Aggregates emit [Domain Events](#handle-messages)
 - The set of Message Listeners executed following the submission of a Command defines a [Domain Process](#domain-processes)
 - Aggregates may be grouped in [Modules](#module)
