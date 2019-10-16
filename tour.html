@@ -1,92 +1,96 @@
 ---
 layout: page
-title: Sample Bounded Context Project
-permalink: /doc/sample-bounded-context/
+title: Sample App
+permalink: /doc/sample-app/
 ---
 
 <h2>Introduction</h2>
 
-<p>The purpose of this page is to provide an overview of the code generated when using Pousse-Café's Sample Bounded Context Maven archetype.</p>
+<p>The purpose of this page is to provide an overview of the code generated when using Pousse-Café's Sample App Maven archetype.
+The content of some core files is explained. It is probably a good idea to open the files in your favorite IDE and
+look at them while reading the explanations below.</p>
 
 <p>While not being strictly required, knowing DDD before reading the following and looking at the code is recommended.
-Indeed, Pousse-Café is there to assist in writing code, not in learning DDD.</p>
+Indeed, Pousse-Café is there to assist in writing code, not in learning DDD. You may read this
+<a href="{{ '/doc/reference-guide/#domain-driven-design-in-a-nutshell' | prepend: site.baseurl }}">quick introduction</a>
+from the reference guide.</p>
 
-<p>Before we have a look at the most relevant files in the project generated when using Pousse-Café's Maven archetype (see <a href="{{ '/#get-started' | prepend: site.baseurl }}">here</a>),
+<p>Before we have a look at the most relevant files in the project generated when using Pousse-Café's Maven archetype
+(see <a href="{{ '/#get-started' | prepend: site.baseurl }}">here</a>),
 let's quickly review some Pousse-Café basics.</p>
 
-<h3>What is a Bounded Context?</h3>
+<h3>How does Pousse-Café work?</h3>
 
-<quote>
-A Bounded Context delimits the applicability of a particular model so that team members have a clear and shared
-understanding of what has to be consistent and how it relates to other [Bounded] Contexts.
-<p class="source">Eric Evans, Domain-Driven Design: Tackling Complexity in the Heart of Software, 2004</p>
-</quote>
-
-<p>In Pousse-Café, a Bounded Context is defined by a set of classes describing domain components and their adapters
-(essentially for storage and messaging).
-Pousse-Café comes with a runtime which instantiates one or several Bounded Contexts. Once the runtime is running,
-commands can be submitted and handled by the components of the different Bounded Contexts.</p>
-
-<p>The creation of the Pousse-Café runtime and the submission of commands to the Bounded Contexts is the responsibility
-of the application embedding the Bounded Context.</p>
+<ul>
+  <li>A Pousse-Café model (i.e. a set of Aggregates and Services) is executed by a Runtime</li>
+  <li>Commands are submitted to the Runtime</li>
+  <li>Commands are handled by Aggregates using Message Listeners</li>
+  <li>Aggregates emit Domain Events</li>
+  <li>The set of Message Listeners executed following the submission of a Command defines a Domain Process</li>
+  <li>Aggregates may be grouped in Modules</li>
+  <li>Domain Events may cross Modules borders</li>
+</ul>
+<p>See the <a href="/doc/reference-guide">reference guide</a> for more information.</p>
 
 <h3>What does the code generated with the archetype contain?</h3>
 
-<p>The archetype generates a sample Pousse-Café Bounded Context.</p>
+<p>The archetype generates a Pousse-Café project describing a sample model.</p>
 
-<p>However, it does not contain the application logic actually creating Pousse-Café runtime and submitting commands to it.</p>
+<p>However, it does not contain the application logic actually creating Pousse-Café Runtime and submitting commands to it.</p>
 
 <h2>Source Code</h2>
 
 <h3>pom.xml</h3>
 
-<p>Pousse-Café requires Java 8 or higher (hence the Maven Compiler properties).</p>
+<p>Pousse-Café requires Java 11 or higher, hence the Maven Compiler configuration.</p>
 
 <p>In this sample project, only 2 Pousse-Café dependencies are required:</p>
 <ul>
-  <li>pousse-cafe-core: The minimal set of classes required to build a Pousse-Café Bounded Context.</li>
-  <li>pousse-cafe-test: Helpers for writing unit tests (see below)</li>
+  <li>pousse-cafe-core: The minimal set of classes required to build a Pousse-Café model.</li>
+  <li>pousse-cafe-test: Helpers for writing tests on the model (see below)</li>
 </ul>
 
-<h3>MyBoundedContext.java</h3>
+<h3>MyModule.java</h3>
 
-<p>This class is responsible for building a configurer for the sample bounded context i.e. a component that will
-auto-discover Domain components (aggregates, factories, repositories) in given packages.</p>
+<p>This class is responsible for building a Bundle to be registered with Pousse-Café's Runtime by
+auto-discovering Domain components (aggregates, factories, repositories) in given packages.</p>
 
-<p>In this example, all components are grouped in a single package: <code class="java">poussecafe.myboundedcontext</code>.</p>
+<p>In this example, all components are grouped in a single package: <code class="java">poussecafe.mymodule</code>.</p>
 
 <h3>MyAggregate.java</h3>
 
 <p>In Pousse-Café, an aggregate is defined by a set of classes, one per entity or value object.</p>
 
-<p>The aggregate's root must extend <code class="java">poussecafe.domain.AggregateRoot</code> class. In order to be auto-discovered by 
-the Bounded Context configurer, it must be annotated with <code class="java">@Aggregate</code> which links it with a
+<p>The aggregate's root must extend <code class="java">poussecafe.domain.AggregateRoot</code> class.
+In order to be auto-discovered, it must be annotated with <code class="java">@Aggregate</code> which links it with a
 factory and a repository.</p>
+
+<p>In Pousse-Café, the use of specific types for identifiers is recommended (in this example,
+<code class="java">MyAggregateId</code>). The goal is to have more
+"intention revealing" interfaces. The type of the identifier is the first parameter of
+<code class="java">AggregateRoot</code>.</p>
+
+<p>The data model of an entity is described by an <em>Attributes</em> interface (<code class="java">MyAggregate.Attributes</code> in this example)
+extending <code>EntityAttributes</code>. The implementation of that interface is an adapter allowing a representation
+of data compatible with a given storage. Therefore, changing storage technology has no impact on domain logic.
+The Attributes type is the second parameter of <code class="java">AggregateRoot</code>.</p>
+
+The <code class="java">@MessageListener</code> annotation defines a message listener i.e. a method handling
+a domain event or a command (i.e. a message).
+The <code class="java">runner</code> parameter defines the service locating the aggregate given the message.
 
 <p><code class="java">doSomething</code> is a command handler i.e. a method executing a command. In this example,
 the command updates an attribute ("x") and emits a domain event <code class="java">MyDomainEvent</code>).</p>
 
-<p><code class="java">MyDomainEvent</code> is an interface. Its implementation is an adapter allowing to represent
+<p><code class="java">ACommand</code> and <code class="java">MyDomainEvent</code> are interfaces.
+Their implementation are adapters allowing to represent
 data in a way that is dependent of the messaging technology. Therefore, changing messaging technology does not impact
 domain logic.</p>
 
-The <code class="java">@MessageListener</code> annotation defines a message listener i.e. a method handling
-a domain event. The <code class="java">runner</code> parameter defines the service locating the aggregate given the
-domain event.
-
-<p>The data model of an entity is described by an <em>Attributes</em> interface (<code class="java">MyAggregate.Attributes</code> in this example)
-extending <code>EntityAttributes</code>. The implementation of that interface is an adapter allowing a representation
-of data compatible with a given storage. Therefore, changing storage technology has no impact on domain logic.</p>
-
 <p>Each method of the Attributes interface returns an <code class="java">Attribute</code> instance for reading or writing
-the attribute's value. This goal is essentially code simplicity: a single method per attribute is defined instead of,
+the attribute's value. The goal is increased code simplicity: a single method per attribute is defined instead of,
 for instance, a setter and a getter.
 </p>
-
-<h3>MyAggregateKey.java</h3>
-
-<p>In Pousse-Café, the use of specific types for keys is recommended. The goal is to write more "intention revealing"
-code.</p>
 
 <h3>MyAggregateFactory.java</h3>
 
@@ -119,27 +123,6 @@ specific queries or message listeners.</p>
 <code class=java">YetAnotherDomainEvent</code> domain event.
 </p>
 
-<h3>MyProcess.java</h3>
-
-<p>In previous files, several message listeners were encountered. They were all "managed" i.e. called automatically by
-the Pousse-Café runtime.</p>
-
-<p>Some situations may require the definition of message listeners independently of an aggregate and its services.
-These message listeners can be defined in so-called <em>Domain Processes</em>.
-</p>
-
-<p>A domain process is a class extending <code class="java">poussecafe.process.DomainProcess</code>.</p>
-
-<p>In this example, <code class="java">MyProcess</code> is composed of 2 command handlers and 1 message listener:</p>
-<ul>
-  <li><code class="java">createMyAggregate</code> command handler creates a new aggregate,</li>
-  <li><code class="java">doSomeAction</code> command handler calls its counter-part at the level of the aggregate,</li>
-  <li><code class="java">handle</code> message listener simply logs the fact that a domain event was emitted.</li>
-</ul>
-
-<p>Note that the services the domain process depends on (MyAggregate's factory and repository) are automatically
-injected by Pousse-Café runtime.</p>
-
 <h3>MyAggregateInternalDataAccess.java</h3>
 
 <p><em>Entity data accesses</em> are adapters used by repositories to actually extract entity data from storage. The 
@@ -149,12 +132,12 @@ repository then wraps them with the entities.</p>
 <code class="java">poussecafe.storage.internal.InternalDataAccess</code>.
 </p>
 
-<p>The annotation <code class="java">@DataAccessImplementation</code> is used by the Bounded Context configurer
-to associated the adapter with MyAggregate and its repository.</p>
+<p>The annotation <code class="java">@DataAccessImplementation</code> is used by the configurer
+to associate the adapter with MyAggregate and its repository.</p>
 
 <p>Note that <code class="java">InternalStorage</code> is the only storage provided with Pousse-Café core: it simply
 stores entity data in memory after serializing them in byte arrays to prevent any mutation. This storage should be used
-essentially for testing.</p>
+only for testing purpose.</p>
 
 <h3>MyAggregateData.java</h3>
 
@@ -171,12 +154,14 @@ be adapted or not, ...
 
 <p>It works essentially in the same way as entity data adapters (see above).</p>
 
-<p>However, in order to be linked to its domain event by the Bounded Context configurer, it needs to be annotated with <code class="java">@MessageImplementation</code>.</p>
+<p>However, in order to be linked to its domain event by the configurer, it needs to be annotated
+with <code class="java">@MessageImplementation</code>.</p>
 
 <h3>MyAggregateCreationWithADomainEvent.java</h3>
 
 <p>This class illustrates how to write tests for a Pousse-Café Bounded Context.</p>
 
-<p>The class <code>MyBoundedContextTest</code>, extending <code>poussecafe.test.PousseCafeTest</code>, essentially configures the Bounded Context and starts a runtime.</p>
+<p>The class <code>MyModuleTest</code>, extending <code>poussecafe.test.PousseCafeTest</code>, configures and starts the
+rest Runtime.</p>
 
 <p>This test verifies that, given an emitted domain event, an aggregate is created and persisted as expected.</p>

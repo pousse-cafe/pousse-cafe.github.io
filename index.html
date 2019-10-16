@@ -73,15 +73,17 @@ title: Home
       <div class="container">
       <h2>Get started!</h2>
       <ol>
-        <li><p>Generate your first Pousse-Café project:</p> <pre><code class="bash">mvn archetype:generate -B \
+        <li><p>Generate your first Pousse-Café project (do not forget to replace archetype version with the latest
+        <img alt="latest version" src="https://maven-badges.herokuapp.com/maven-central/org.pousse-cafe-framework/pousse-cafe/badge.svg">):
+        </p> <pre><code class="bash">mvn archetype:generate -B \
       -DarchetypeGroupId=org.pousse-cafe-framework \
-      -DarchetypeArtifactId=pousse-cafe-sample-bounded-context-archetype \
-      -DarchetypeVersion={{ site.latest_release_version }} \
+      -DarchetypeArtifactId=pousse-cafe-sample-app-archetype \
+      -DarchetypeVersion=${pousse-cafe.version} \
       -DgroupId=test \
       -DartifactId=test \
       -Dversion=0.0.0-SNAPSHOT</code></pre></li>
         <li>Open the project in your favorite IDE</li>
-        <li><a href="{{ '/doc/sample-bounded-context' | prepend: site.baseurl }}">Take the tour of the code</a></li>
+        <li><a href="{{ '/doc/sample-app' | prepend: site.baseurl }}">Take the tour of the code</a></li>
       </ol>
     </div>
   </section>
