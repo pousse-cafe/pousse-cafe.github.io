@@ -455,7 +455,7 @@ Factory message listeners are used to create Aggregates when handling a Domain E
 
 Below example illustrates listeners in a Factory:
 
-    public class MyAggregateFactory extends Factory {
+    public class MyAggregateFactory extends Factory<...> {
     
         @MessageListener
         public MyAggregate createMyAggregate(Event1 event) {
@@ -482,6 +482,8 @@ Below example illustrates listeners in a Factory:
 
 When new Aggregates are created, Pousse-Café automatically starts a transaction and commits it if the storage requires
 it.
+
+Note that there cannot be several listeners per Factory consuming the same message.
 
 ### In an Aggregate Root
 
@@ -537,19 +539,23 @@ empty update context.
 
 The Aggregates updated by a given event ``Event1`` are identified by the identifiers returned by ``targetAggregatesIds``.
 
+Note that there cannot be several listeners per Aggregate consuming the same message.
+
 ### In a Repository
 
 Repository message listeners are used to remove Aggregates when handling a Domain Event.
 
 Below example illustrates a listener in a Repository:
 
-    public class MyAggregateRepository extends Repository {
+    public class MyAggregateRepository extends Repository<...> {
     
         @MessageListener
         public void deleteAggregate(Event3 event) {
             ...
         }
     }
+
+Note that there cannot be several listeners per Repository consuming the same message.
 
 ### In an Explicit Domain Process
 
@@ -707,28 +713,29 @@ First, you'll need a Spring configuration class:
     public class AppConfiguration {
     
         @Bean
-        public Runtime pousseCafeRuntime() {
-            BoundedContext boundedContext = MyBoundedContext.configure()
-                .defineAndImplementDefault()
+        public Bundles bundles(
+                Messaging messaging,
+                Storage storage) {
+            MessagingAndStorage messagingAndStorage = new MessagingAndStorage(messaging, storage);
+            return new Bundles.Builder()
+                .withBundle(MyModule.configure().defineThenImplement().messagingAndStorage(messagingAndStorage).build())
                 .build();
-            Runtime runtime = new Runtime.Builder()
-                .withBoundedContexts(boundedContext)
-                .build();
-            runtime.start();
-            return runtime;
         }
     }
 
 The `poussecafe.spring` package needs to be added to the component scan to build the bridge between Pousse-Café's
-Runtime and Spring's application context (an dependency to ``pousse-cafe-spring`` needs to be added to your project). 
-Basically, this will enable the injection
+Runtime and Spring's application context (a dependency to ``pousse-cafe-spring`` needs to be added to your project). 
+This will enable the injection
 of Pousse-Café services as Spring beans and allow the injection of Spring beans in Pousse-Café services.
 
 Note that the latter is not recommended as you would be bringing non-domain elements inside of your domain logic.
 
+A Pousse-Café Runtime will be automatically instantiated with configured bundles and started once Spring context is
+ready.
+
 After that, you can access Domain Processes and Repositories directly from Spring components.
 
-Below an example of a Spring Web controller allowing to submit commands to a Domain Process command via a REST resource:
+Below an example of a Spring Web controller allowing to submit commands to the Runtime via a REST resource:
 
     @RestController
     public class RestResource {
@@ -736,11 +743,11 @@ Below an example of a Spring Web controller allowing to submit commands to a Dom
         @RequestMapping(path = "/product", method = RequestMethod.POST)
         public void createProduct(@RequestBody CreateProductView input) {
             ProductId productId = new ProductId(input.id);
-            productManagement.createProduct(new CreateProduct(productId));
+            runtime.submitCommand(new CreateProduct(productId));
         }
     
         @Autowired
-        private ProductManagement productManagement;
+        private Runtime runtime;
     }
 
 ## Custom Message Listeners
@@ -843,24 +850,17 @@ The Spring configuration then looks like this:
     public class AppConfiguration {
     
         @Bean
-        public Runtime pousseCafeRuntime() {
-            MessagingAndStorage messagingAndStorage = new MessagingAndStorage(InternalMessaging.instance(),
-                    SpringMongoDbStorage.instance());
-    
-            Runtime runtime = new Runtime.Builder()
-                .withBoundedContext(MyBoundedContext.configure()
-                        .defineThenImplement()
-                        .messagingAndStorage(messagingAndStorage)
-                        .build())
+        public Bundles bundles(
+                Messaging messaging,
+                SpringMongoDbStorage storage) {
+            MessagingAndStorage messagingAndStorage = new MessagingAndStorage(messaging, storage);
+            return new Bundles.Builder()
+                .withBundle(MyModule.configure().defineThenImplement().messagingAndStorage(messagingAndStorage).build())
                 .build();
-    
-            runtime.start();
-    
-            return runtime;
         }
     }
 
-Unlike [previous example](#run-your-model), ``SpringMongoDbStorage`` is used instead of the default
+Unlike [previous example](#spring-integration), ``SpringMongoDbStorage`` is used instead of the default
 storage implementation.
 
 ## Generating DDD documentation
