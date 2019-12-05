@@ -1,5 +1,6 @@
 #!/bin/bash
 
+PLUGIN_SRC_PATH="../pousse-cafe-maven-plugin"
 PLUGIN_DOC_PATH="pousse-cafe-maven-plugin"
 
 if [ ! -d $PLUGIN_DOC_PATH ]; then
@@ -8,6 +9,6 @@ if [ ! -d $PLUGIN_DOC_PATH ]; then
 fi
 
 rm -rf $PLUGIN_DOC_PATH/*
-( cd ../pousse-cafe/pousse-cafe-maven-plugin ; mvn clean site )
-cp -r ../pousse-cafe/pousse-cafe-maven-plugin/target/site/* $PLUGIN_DOC_PATH
-find pousse-cafe-maven-plugin -name *.xcf -delete
+( cd $PLUGIN_SRC_PATH ; mvn clean site )
+cp -r $PLUGIN_SRC_PATH/target/site/* $PLUGIN_DOC_PATH
+find $PLUGIN_DOC_PATH -name *.xcf -delete
