@@ -15,9 +15,9 @@ permalink: /doc/reference-guide/
 - [Handle Messages](#handle-messages)
 - [Run your Model](#run-your-model)
 - [Test your Model](#test-your-model)
-- [Spring Integration](#spring-integration)
 - [Custom Message Listeners](#custom-message-listeners)
 - [Message Listeners execution order](#message-listeners-execution-order)
+- [Spring Integration](#spring-integration)
 - [Alternative Storage](#alternative-storage)
 - [Generating DDD documentation](#generating-ddd-documentation)
 
@@ -701,6 +701,47 @@ messages published when executing the command are actually consumed. This ensure
 condition between the asynchronous handling of Domain Events and the fact that the Aggregate being fetched might be
 created as a consequence of the consumption of one of those messages.
 
+## Custom Message Listeners
+
+In some circumstances, for instance when you want to react to a Domain Event in a non-domain service (e.g. a Spring 
+Bean), you may define
+custom message listeners. Custom message listeners are defined in the same way as Factory, Repository and Domain Process
+listeners (i.e. using the `@MessageListener` annotation). The only difference is that you have to register them 
+explicitly.
+
+This is done by using `Runtime`'s `registerListenersOf` method:
+
+    runtime.registerListenersOf(service)
+
+where `service` is the instance of the service defining the listeners.
+
+When integrating with Spring, beans extending `MessageListeningBean` have all their message listeners automatically
+registered upon initialization.
+
+## Message Listeners execution order
+
+No assumption should be made on the order in which message listeners will be executed when handling a given message.
+However, there are priority rules given the type of listener. Below list shows the order in which listener types are executed:
+
+1. Repository listeners
+2. Aggregate listeners
+3. Factory listeners
+4. Domain Process listeners
+5. Custom listeners
+
+So for example, if listeners of all types consume a message `M`, it will first be handled by listeners defined in 
+Repositories, then in listeners defined in Aggregates, etc.
+
+If several listeners are defined per type (e.g. Repository listeners), the order in which they are executed is 
+undefined.
+
+There are several goals behind above priority rule:
+
+- Define "update only" listeners in Aggregates i.e. listeners that will not be executed on Aggregates that were
+previously created while handling the same message;
+- Re-create an aggregate by removing it using a Repository, then re-adding it with a Factory;
+- Prevent the removal by a Repository of an Aggregate previously created by a Factory while handling the same message.
+
 ## Spring Integration
 
 Instantiating a Pousse-Café Runtime inside of a Spring application is easy thanks to Pousse-Café's Spring Bridge
@@ -749,47 +790,6 @@ Below an example of a Spring Web controller allowing to submit commands to the R
         @Autowired
         private Runtime runtime;
     }
-
-## Custom Message Listeners
-
-In some circumstances, for instance when you want to react to a Domain Event in a non-domain service (e.g. a Spring 
-Bean), you may define
-custom message listeners. Custom message listeners are defined in the same way as Factory, Repository and Domain Process
-listeners (i.e. using the `@MessageListener` annotation). The only difference is that you have to register them 
-explicitly.
-
-This is done by using `Runtime`'s `registerListenersOf` method:
-
-    runtime.registerListenersOf(service)
-
-where `service` is the instance of the service defining the listeners.
-
-When integrating with Spring, beans extending `MessageListeningBean` have all their message listeners automatically
-registered upon initialization.
-
-## Message Listeners execution order
-
-No assumption should be made on the order in which message listeners will be executed when handling a given message.
-However, there are priority rules given the type of listener. Below list shows the order in which listener types are executed:
-
-1. Repository listeners
-2. Aggregate listeners
-3. Factory listeners
-4. Domain Process listeners
-5. Custom listeners
-
-So for example, if listeners of all types consume a message `M`, it will first be handled by listeners defined in 
-Repositories, then in listeners defined in Aggregates, etc.
-
-If several listeners are defined per type (e.g. Repository listeners), the order in which they are executed is 
-undefined.
-
-There are several goals behind above priority rule:
-
-- Define "update only" listeners in Aggregates i.e. listeners that will not be executed on Aggregates that were
-previously created while handling the same message;
-- Re-create an aggregate by removing it using a Repository, then re-adding it with a Factory;
-- Prevent the removal by a Repository of an Aggregate previously created by a Factory while handling the same message.
 
 ## Alternative Storage
 
