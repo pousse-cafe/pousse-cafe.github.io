@@ -17,6 +17,7 @@ permalink: /doc/reference-guide/
 - [Test your Model](#test-your-model)
 - [Custom Message Listeners](#custom-message-listeners)
 - [Message Listeners execution order](#message-listeners-execution-order)
+- [Collision Handling](#collision-handling)
 - [Spring Integration](#spring-integration)
 - [Alternative Storage](#alternative-storage)
 - [Generating DDD documentation](#generating-ddd-documentation)
@@ -514,12 +515,14 @@ A ``AggregateMessageListenerRunner`` is defined as follows:
 
     public interface AggregateMessageListenerRunner<M, K, A> {
     
-        Set<K> targetAggregatesIds(M message);
+        TargetAggregates<K> targetAggregates(M message);
     
         Object context(M message, A aggregate);
     }
 
-``targetAggregatesIds`` returns the IDs of the Aggregates to update given an event.
+``targetAggregates`` defines the IDs of the Aggregates to update given an event. It also allows to define the
+IDs of the Aggregates whose creation is expected because they cannot be updated (see section about
+[collision handling](#collision-handling)).
 
 ``context`` returns the data required to execute the update i.e. information coming potentially from other
 Aggregates or external configuration. The use of an update context is not recommended but may be required in some
@@ -529,7 +532,7 @@ Below example illustrates the runner for the listener in above example:
 
     public class UpdateAggregateRunner extends DefaultAggregateMessageListenerRunner<Event2, MyAggregateId , MyAggregate> {
     
-        public Set<MyAggregateId> targetAggregatesIds(Event2 message) {
+        public TargetAggregates<MyAggregateId> targetAggregates(Event2 message) {
             ...
         }
     }
@@ -741,6 +744,91 @@ There are several goals behind above priority rule:
 previously created while handling the same message;
 - Re-create an aggregate by removing it using a Repository, then re-adding it with a Factory;
 - Prevent the removal by a Repository of an Aggregate previously created by a Factory while handling the same message.
+
+## Collision Handling
+
+Once you deploy your application in a distributed environment, you will more than likely want to achieve high performance
+and/or high availability which may both be obtained by multiplying the number of processing nodes. In the context of
+a Pousse-Café application, this generally means that you will have several Pousse-Café Runtime instances executed by
+different nodes running the same Modules and, therefore, the same sets of listeners.
+
+The real issue is that you will start experiencing "collisions" i.e. several listeners trying to update or create the
+same aggregate at the same time.
+
+In a single node environment, even with several processing threads, Pousse-Café is able to prevent collisions. However,
+in a multi-node environment, this is not possible.
+
+Ideally, a model should be designed in a way that the probability of collision is reduced. Generally, this means
+having many small Aggregates instead of a few big ones. However, it is sometimes not possible to prevent them
+completely (i.e. the probability of collision cannot be reduced to zero).
+
+To handle this issue, Pousse-Café implements a rather simple mechanism: when a collision is detected while running a
+listener, the execution of the listener is retried a bit later, potentially several times, until the listener is
+successfully executed.
+
+Note that this mechanism implies that messages may not be handled in a strict sequence anymore: a retry may cause
+that a message that was emitted before another one is actually handled after it. The Model has to be meant in a way
+that supports this. If strict sequences are required, proper synchronization mechanisms have to be implemented.
+
+### Detecting Collisions
+
+Collisions are detected in two situations:
+
+1. An update fails with an optimistic locking error,
+2. An insertion fails with a duplicate key error when it should not (i.e. the insertion is expected to be successful).
+
+First situation is rather obvious: the execution of the listener which failed with an optimistic locking error
+must simply be retried.
+
+Second situation is a bit more tricky: if a duplicate key error occurs, it should be detected as a collision only if
+an update listener on the same aggregate was not executed because the aggregate did not exist at the time it was
+executed. Indeed, this configuration means that another instance running in parallel created the aggregate in the
+meantime. If this did not happen, the duplicate key error must be interpreted as a regular failure (i.e. probably
+a bug).
+
+The fact that a skipped update requires a subsequent creation is noticed via a `TargetAggregates<K>` instance
+returned by a runner (see [Aggregate Root listeners](#in-an-aggregate-root)). For example, the following code inside
+of Runner's `targetAggregates` method tells to Pousse-Café that Aggregate with ID `id` might be updated but if it
+is not, then it must be created:
+
+    MyAggregateId id = ...;
+    if(...) { // Aggregate can be updated
+        return new TargetAggregates.Builder<MyAggregateId>()
+                .toUpdate(id)
+                .build();
+    } else { // 
+        return new TargetAggregates.Builder<MyAggregateId>()
+                .toCreate(id)
+                .build();
+    }
+
+The creation itself must be handled by a [Factory listener](#in-a-factory).
+
+Note that in a collision-free environment, the "else" block of above code is useless as creation will always be
+executed in case no update was.
+
+### Testing Code Collision-readiness
+
+Pousse-Café [test runtime](#test-your-model) can be configured in a way that the probability of collision is increased,
+enabling to test the readiness of code with regards to collision occurrence. To do so, the instance returned by 
+`replicationStrategy` method of `PousseCafeTest` may be used as message listeners pool split strategy:
+
+    @Override
+    protected Builder runtimeBuilder() {
+        return super.runtimeBuilder()
+                .messageListenersPoolSplitStrategy(replicationStrategy(8))
+                ...
+                .build();
+    }
+
+`replicationStrategy` takes as an argument the number of threads that will execute in parallel the whole set of
+listeners. The higher the number, the higher the probability of collision (but take the number of cores of executing
+machine into account, with a single core, even a high number of threads will not produce much concurrency).
+
+### Explicit Domain Processes and Custom Listeners
+
+Currently, automated collision detection and handling is not available for explicit Domain Processes' listeners and
+custom listeners. In this those cases, collisions have to be handled explicitly by the developer.
 
 ## Spring Integration
 
