@@ -828,7 +828,7 @@ machine into account, with a single core, even a high number of threads will not
 ### Explicit Domain Processes and Custom Listeners
 
 Currently, automated collision detection and handling is not available for explicit Domain Processes' listeners and
-custom listeners. In this those cases, collisions have to be handled explicitly by the developer.
+custom listeners. In those cases, collisions have to be handled explicitly by the developer.
 
 ## Spring Integration
 
