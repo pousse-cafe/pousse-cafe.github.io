@@ -796,7 +796,7 @@ is not, then it must be created:
         return new TargetAggregates.Builder<MyAggregateId>()
                 .toUpdate(id)
                 .build();
-    } else { // 
+    } else { // The aggregate was not updated but its creation is expected
         return new TargetAggregates.Builder<MyAggregateId>()
                 .toCreate(id)
                 .build();
