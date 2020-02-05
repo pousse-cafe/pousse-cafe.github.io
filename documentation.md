@@ -632,6 +632,17 @@ In order to keep the code base as small and clean as possible, it is recommended
 required. In other words, put as many message listeners in Factories, Aggregate Roots and Repositories as possible.
 Explicit Domain Processes are kept for the very rare cases where this approach is not possible.
 
+### Enrich Listeners Description
+
+A message listener may be annotation with `ProducesEvent` annotation. This annotation tells which type of
+Domain Event is emitted by the message listener upon execution and if the emission is optional or not.
+Putting this annotation on the listener enables a check by the Runtime that expected events are indeed emitted.
+If it is not the case, the execution of the listener fails and an exception is thrown, allowing to detect early the
+issue.
+
+This feature is particularly interesting when [testing the model](#test-your-model) but is also used to [generate
+model's documentation](#generating-ddd-documentation).
+
 ## Run your model
 
 The definitions and implementations of Aggregates and Services of a given Domain Model are grouped in a ``Bundle``.
@@ -1192,7 +1203,7 @@ Factories, Aggregate Roots or Repositories.
 
 The name of the Steps are built using Message Listeners' method signature.
 
-The description of each Step is taken from the javadoc comment on the Message Listener's method.
+The description of each Step is taken from the javadoc comment on the Message Listener's method and its annotations.
 
 `@process` tag is used to link the step to a given Domain Process. Several `@process` tags may be used to tell that
 the step is part of several Domain Processes.
@@ -1200,15 +1211,12 @@ the step is part of several Domain Processes.
 `@process_description` tag is used on one step of a Domain Process to set the short description of the Domain 
 Process. The first word of the description is the name of the Domain Process this description is linked to.
 
-`@event` tag is used to tell which Domain Event is emitted by the Message Listener. Several `@event` tags may be
-used if several Domain Events may be emitted.
+`@ProducesEvent` annotation is used to tell which Domain Event is emitted by the Message Listener. Several 
+`@ProducesEvent` annotations may be used if several Domain Events may be emitted. Also, `toExternals` attribute
+may be used to tell that an emitted event is actually consumed by an external system or another module.
 
 `@from_external` tag on a step implies the creation of a virtual node from which handled Domain Event is coming. 
 This allows to describe situations where the consumed message is coming from a non-Domain component or another Bounded 
-Context.
-
-`@to_external` tag on a step implies the creation of a virtual node to which produced Domain Events are going. This 
-allows to describe situations where the produced messages are going to a non-Domain component or another Bounded 
 Context.
 
 Example of a step part of Domain Process `DomainProcessName` and producing Domain Events `Event1` and `Event2`:
@@ -1218,11 +1226,11 @@ Example of a step part of Domain Process `DomainProcessName` and producing Domai
      *
      * @process DomainProcessName
      * @process_description DomainProcessName Description of DomainProcessName
-     * @event Event1
-     * @event Event2
      */
+     @ProducesEvent(Event1.class)
+     @ProducesEvent(value = Event2.class, toExternals = {"System A", "System B"})
 
-Above comment comes above the method implementing the Message Listener.
+This comment and annotations come above the method implementing the Message Listener.
 
 #### Explicit Domain Processes
 
@@ -1251,9 +1259,6 @@ followed by a string  with the following format: `Component.method(Event)` where
 `@from_external` tag implies the creation of a virtual node from which handled Domain Event is coming. This allows
 to describe situations where the consumed message is coming from a non-Domain component or another Bounded Context.
 
-`@to_external` tag implies the creation of a virtual node to which produced Domain Events are going. This allows
-to describe situations where the produced messages are going to a non-Domain component or another Bounded Context.
-
 Example of a step part of Domain Process `DomainProcessName` (i.e. defined by a method of class 
 `DomainProcessName`) consuming `Event1` and producing Domain Events `Event2` and `Event3`:
 
@@ -1266,14 +1271,14 @@ Example of a step part of Domain Process `DomainProcessName` (i.e. defined by a 
        ...
     }
 
-Above comment comes above the method implementing the Message Listener. Below snippet shows the comment that must be
-put above the method called by the Message Listener:
+Above comment comes above the method implementing the Message Listener. Below snippet shows the comment and annotations 
+that must be put above the method called by the Message Listener:
 
     /**
      * @step MyAggregate.handle(Event1)
-     * @event Event2
-     * @event Event3
      */
+     @ProducesEvent(Event1.class)
+     @ProducesEvent(value = Event2.class, toExternals = {"System A", "System B"})
 
 An explicit Domain Process must be part of a documented Module (i.e. it must be defined by a class in the documented 
 Module's base package or one of its sub-packages). Otherwise, it will not be shown.
