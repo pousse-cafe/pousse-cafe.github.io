@@ -10,6 +10,7 @@ permalink: /doc/reference-guide/
 - [Domain-Driven Design in a nutshell](#domain-driven-design-in-a-nutshell)
 - [The purpose of Pousse-Café](#the-purpose-of-pousse-caf)
 - [Quick Summary](#quick-summary)
+- [Storage and Messaging](#storage-and-messaging)
 - [Implement Aggregates](#implement-aggregates)
 - [Implement Services](#implement-services)
 - [Handle Messages](#handle-messages)
@@ -103,6 +104,31 @@ technologies and then instantiate it in an actual application by plugging in the
 - The set of Message Listeners executed following the submission of a Command defines a [Domain Process](#domain-processes)
 - Aggregates may be grouped in [Modules](#module)
 - Domain Events may cross Modules borders
+
+## Storage and Messaging
+
+Pousse-Café works with "plugable" Storage and Messaging systems:
+
+- A Storage tells how to persist [Aggregate](#implement-aggregates) data.
+- A Messaging tells how [Commands and Domain Events](#handle-messages) must be marshaled and transmitted.
+
+A Storage is linked to each defined Aggregate. A Messaging is linked to each defined Command and Domain Event.
+Different Aggregates may use different Storage systems. This is also true for Commands and Domain Events.
+This feature is useful when migrating from one Storage/Messaging system to another for instance.
+
+A Storage system may require transaction management. Pousse-Café does this automatically so that the developer should
+almost never have to handle it manually (though [there are exceptions](#in-an-explicit-domain-process)).
+
+Pousse-Café handles Storage and Messaging as follows:
+
+1. In reaction to a Command or a Domain Event, an Aggregate is [updated](#in-an-aggregate-root),
+[created](#in-a-factory) or [deleted](#in-a-repository).
+2. The change is persisted using Storage and, potentially, implying a transaction.
+3. If persistence is successful (i.e. transaction was successfully committed if applicable), then emitted Domain Events
+are sent using Messaging system.
+
+Note that Commands are not sent using Messaging. They are inserted directly in an in-memory queue. Therefore,
+Commands do not need to be "serializable".
 
 ## Implement Aggregates
 
@@ -443,8 +469,8 @@ the abstract service using attribute `service`.
 
 ## Handle Messages
 
-There are 2 types of messages in Pousse-Café: Domain Events and Commands. In DDD, Domain Events are used implement
-eventual consistency. Commands represent inputs from users or external systems.
+There are 2 types of messages in Pousse-Café: Domain Events and Commands. In DDD, one of the purposes of Domain Events
+is eventual consistency. Commands represent inputs from users or external systems.
 
 Messages may directly be handled by Domain components i.e. Aggregate Roots, Factories or Repositories.
 
@@ -482,7 +508,8 @@ Below example illustrates listeners in a Factory:
 ``createMyAggregates`` creates zero, one or several Aggregates each time an event ``Event3`` is consumed.
 
 When new Aggregates are created, Pousse-Café automatically starts a transaction and commits it if the storage requires
-it.
+it when persisting the newly created Aggregates. The creation itself i.e. the execution of the message listener
+happens outside of the transaction (actually, before it).
 
 Note that there cannot be several listeners per Factory consuming the same message.
 
@@ -502,7 +529,7 @@ Below example illustrates a listener in an Aggregate Root:
         ...
     }
 
-``updateAggregate`` updates the Aggregate in function of consumed ``Event1``. Pousse-Café automatically starts a transaction and commits it if the storage requires it.
+``updateAggregate`` updates the Aggregate in function of consumed ``Event1``. Pousse-Café automatically starts a transaction and commits it if the storage requires it. The message listener is executed inside of the transaction.
 
 The identity of the Aggregates to update needs to be extracted from the event. Therefore, message listeners defined in
 Aggregate Roots require a ``AggregateMessageListenerRunner<M, K, A>`` where
@@ -530,19 +557,28 @@ cases.
 
 Below example illustrates the runner for the listener in above example:
 
-    public class UpdateAggregateRunner extends DefaultAggregateMessageListenerRunner<Event2, MyAggregateId , MyAggregate> {
+    public class UpdateAggregateRunner extends NoContextByDefaultRunner<Event2, MyAggregateId , MyAggregate> {
     
         public TargetAggregates<MyAggregateId> targetAggregates(Event2 message) {
             ...
         }
     }
 
-``DefaultAggregateMessageListenerRunner`` extends ``AggregateMessageListenerRunner`` and simply implies an
+``NoContextByDefaultRunner`` extends ``AggregateMessageListenerRunner`` and simply implies an
 empty update context.
 
-The Aggregates updated by a given event ``Event1`` are identified by the identifiers returned by ``targetAggregatesIds``.
+The Aggregates updated by the consumption of a given event ``Event1`` are identified by the identifiers returned by ``targetAggregatesIds``.
 
 Note that there cannot be several listeners per Aggregate consuming the same message.
+
+In order to accelerate the writing of runners, helpers exist for common situations:
+
+- `AlwaysUpdateRunner`: always update (target aggregates must exist)
+- `AlwaysUpdateOneRunner`: always update the target aggregate (target aggregate must exist)
+- `UpdateOrCreateRunner`: update the target aggregates or create them if they do not exist (a factory listener must
+handle this)
+- `UpdateOrCreateOneRunner`: update the target aggregate or create it if it does not exist (a factory listener must
+handle this)
 
 ### In a Repository
 
@@ -802,7 +838,9 @@ is not, then it must be created:
                 .build();
     }
 
-The creation itself must be handled by a [Factory listener](#in-a-factory).
+The creation itself must be handled by a [Factory listener](#in-a-factory). Above logic is implemented by helpers
+`UpdateOrCreateRunner` and `UpdateOrCreateOneRunner`. It is recommended to extend one of them when doing
+"update or create" in a collision-prone environment.
 
 Note that in a collision-free environment, the "else" block of above code is useless as creation will always be
 executed in case no update was.
