@@ -704,12 +704,11 @@ Actually, you might write your whole Domain logic even before deciding what kind
 storage you would be using. More importantly, it means that you can focus your tests on the Domain.
 
 For testing, it is suggested to use the default in-memory storage implementation provided by Pousse-Café.
-When actually integrating your Model in a real application, you would
+When actually integrating your Model in a real application, you could
 then just choose another implementation [when building the Runtime](#run-your-model).
 
-`PousseCafeTest` class can be extended to write (JUnit 4) tests involving different Bundles.
-What this class does is essentially instantiate a Runtime and provide some
-helpers to access its components.
+`PousseCafeTest` class can be extended to write (JUnit) tests involving different Bundles.
+What this class does is essentially instantiate a Runtime and provide helpers to access its components.
 
 Below example illustrates a test verifying that the handling of "Create Product" command actually implies the new
 product to be available from the Repository.
@@ -739,6 +738,85 @@ Overriding the `runtimeBuilder` method enables the configuration of test Runtime
 messages published when executing the command are actually consumed. This ensures that there will be no race
 condition between the asynchronous handling of Domain Events and the fact that the Aggregate being fetched might be
 created as a consequence of the consumption of one of those messages.
+
+### Initial state
+
+Generally, when testing the handling of a Command or Domain Event, you need an initial data set to be available (i.e.
+an initial state for a collection of aggregates).
+
+You may do this programmatically (by submitting a sequence of Commands and/or Domain Events). However, this approach
+may produce code which is hard to maintain: each time the process leading to the initial state you are trying to 
+produce changes, you may have to modify your test code, even if the result remains unchanged.
+
+Another possibility is to directly load data from a structured file. The file contains the data for all aggregates
+that make the expected initial state. `PousseCafeTest` class provides a method called `loadDataFile`. Calling
+this method actually reads a JSON file and adds aggregates data into the test storage. `loadDataFile` takes a String 
+argument which is a resource name such as consumed by `Class.getResource`. This enables to point to a file available
+on the class path (e.g. a file located in `src/test/resources` when using Maven).
+
+The file loaded by `loadDataFile` must have the following structure:
+
+    {
+        "package.to.AnAggregateRoot": [
+            {
+                ...
+            },
+            ...
+        ],
+        ...
+    }
+
+The root element is an object, each field of the object being identified by the fully qualified class name of an
+Aggregate Root. The value of the fields is an array of objects, each object representing the data of linked Aggregate.
+The fields of the data objects depend on the implementation of an Aggregate's data. For example, if you data 
+implementation class looks like this:
+
+    @SuppressWarnings("serial")
+    public class ProductData implements Product.Attributes, Serializable {
+    
+        @Override
+        public Attribute<ProductId> id() {
+            return AttributeBuilder.stringId(ProductId.class)
+                .read(() -> productId)
+                .write(value -> productId = value)
+                .build();
+        }
+    
+        private String productId;
+    
+        @Override
+        public Attribute<Integer> availableUnits() {
+            return AttributeBuilder.single(Integer.class)
+                .read(() -> availableUnits)
+                .write(value -> availableUnits = value)
+                .build();
+        }
+    
+        private int availableUnits;
+        
+        ...
+    }
+
+then you JSON data will look like that:
+
+    {
+        "productId": "...",
+        "availableUnits": ...,
+        ...
+    }
+
+### Testing a Single Entity
+
+Sometimes, one wants to only test a single method of an Entity (i.e. not a whole process). In order to produce
+such an Entity, there are 2 possibilities:
+
+1. use a Factory,
+2. produce a instance by hand.
+
+First possibility might require some heavy setup in order to ensure that all constraints checked by the Factory are met.
+Therefore, in some cases, second possibility is preferred. In order to prevent the manual configuration of such an 
+Entity (set data and other Pousse-Café implementation details), `PousseCafeTest` defines a `newEntity` method which 
+produces an empty instance. One may then only set the required attributes and run its test.
 
 ## Custom Message Listeners
 
