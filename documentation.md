@@ -23,7 +23,8 @@ permalink: /doc/reference-guide/
 - [More on Attributes](#more-on-attributes)
 - [Generating expert-readable documentation](#generating-expert-readable-documentation)
 - [Spring Integration](#spring-integration)
-- [Alternative Storage](#alternative-storage)
+- [Storage Plug-ins](#storage-plug-ins)
+- [Messaging Plug-ins](#messaging-plug-ins)
 
 ## Introduction
 
@@ -355,7 +356,7 @@ Below example illustrates an implementation of ``Product.Attributes`` interface.
     }
 
 This implementation is serializable and is therefore suitable, for example, for Pousse-Café's internal memory-based
-storage (``InternalStorage``). [Other types of storage](#alternative-storage) might require additional enrichment of
+storage (``InternalStorage``). [Other storage types](#storage-plug-ins) might require additional enrichment of
 the data (annotations, etc.).
 
 Pousse-Café's internal storage's purpose is testing, it should not be used by production code.
@@ -549,7 +550,7 @@ Implementations not matching the chosen storage are ignored.
 The addition of a single new Aggregate to a Model requires the writing of several classes (at least the Aggregate Root,
 the Factory, the Repository and the Data Access). In order to accelerate this
 process, Pousse-Café's [Maven plugin](/pousse-cafe-maven-plugin/plugin-info.html) provides the `add-aggregate` goal
-which creates all required classes as well as adapters for an [alternative storage](#alternative-storage) if needed.
+which creates all required classes as well as adapters for a [specific storage plug-in](#storage-plug-ins) if needed.
 
 The new Aggregate is initially created without any attribute but the (required) identifier attribute.
 See [the documentation of add-aggregate](/pousse-cafe-maven-plugin/add-aggregate-mojo.html) for more details.
@@ -1365,14 +1366,14 @@ Instantiating a Pousse-Café Runtime inside of a Spring application is easy than
 [Spring Bridge](https://github.com/pousse-cafe/pousse-cafe-spring). See project README for more details about how
 to do so.
 
-## Alternative Storage
+## Storage Plug-Ins
 
 The following plugins are currently available:
 
 - [Pousse-Café Spring Mongo](https://github.com/pousse-cafe/pousse-cafe-spring-mongo)
 - [Pousse-Café Spring JPA](https://github.com/pousse-cafe/pousse-cafe-spring-jpa)
 
-## Alternative Messaging
+## Messaging Plug-Ins
 
 The following plugins are currently available:
 
