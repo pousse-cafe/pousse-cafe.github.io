@@ -4,13 +4,14 @@ title: Reference Guide
 permalink: /doc/reference-guide/
 ---
 
-## Content
+## Table of Content
 
 - [Introduction](#introduction)
 - [Domain-Driven Design in a nutshell](#domain-driven-design-in-a-nutshell)
 - [The purpose of Pousse-Café](#the-purpose-of-pousse-caf)
 - [Quick Summary](#quick-summary)
 - [Storage and Messaging](#storage-and-messaging)
+- [Introducing Attributes](#introducing-attributes)
 - [Implement Aggregates](#implement-aggregates)
 - [Implement Services](#implement-services)
 - [Handle Messages](#handle-messages)
@@ -19,9 +20,10 @@ permalink: /doc/reference-guide/
 - [Custom Message Listeners](#custom-message-listeners)
 - [Message Listeners execution order](#message-listeners-execution-order)
 - [Collision Handling](#collision-handling)
+- [More on Attributes](#more-on-attributes)
+- [Generating expert-readable documentation](#generating-expert-readable-documentation)
 - [Spring Integration](#spring-integration)
-- [Alternative Storage](#alternative-storages)
-- [Generating DDD documentation](#generating-ddd-documentation)
+- [Alternative Storage](#alternative-storage)
 
 ## Introduction
 
@@ -131,6 +133,112 @@ are sent using the Messaging system.
 Note that Commands are not sent using Messaging. They are inserted directly in an in-memory queue. Therefore,
 Commands do not need to be "serializable".
 
+## Introducing Attributes
+
+Before describing the actual implementation of an Aggregate, the concept of Attribute must be introduced. It is central
+to the decoupling of domain logic and persistence logic. This decoupling supports the "pluggable storage" feature of
+Pousse-Café because it enables an abstract/domain-level description of the data model by separating it from
+the actual data model used for persistence.
+
+While the above could be achieved without Attributes, their use is recommended in order to simplify code and prevent
+any accidental leak of technical details into domain logic.
+
+An Attribute is an object encapsulating a value with a given type (the Attribute's type) and exposing a getter and
+a setter for this value. It also hides the way the value is actually stored (you may for instance have a BigDecimal
+Attribute actually storing its value in the form of a String). In that case, the implementation of the getter and
+the setter includes conversion logic.
+
+The purpose of Attributes is
+
+1. to simplify the interface of an enclosing class: instead of having 2 methods (one for the getter, one for the setter),
+a single method exposing the Attribute is enough,
+2. to simplify client code when data conversion is needed (i.e. when the type of stored value is different from the type 
+exposed),
+3. to have an interface explicitly exposing an Attribute in the form of a single element (and not two with getter and
+setter sharing the same name or being prefixed with get or set respectively).
+
+The ``Attribute`` interface is defined as follows:
+
+    public interface Attribute<V> {
+      
+         V value();
+    
+         void value(V value);
+         
+         default void valueOf(Attribute<T> property) {
+             value(property.value());
+         }
+    }
+
+It is then possible to define an enclosing interface like this:
+
+    interface Example {
+    
+        Attribute<BigDecimal> x();
+    }
+
+Given a reference `r` to an instance of `Example`, setting `x` can be written as follows:
+
+    r.x().value(new BigDecimal("42"))
+
+Getting the value of `x` can be written as follows:
+
+    r.x().value()
+
+An implementation of `Example` could then look like this:
+
+    class ExampleImpl implements Example {
+    
+        public Attribute<BigDecimal> x() {
+            return AttributeBuilder.single(BigDecimal.class)
+                .read(() -> x)
+                .write(value -> x = value)
+                .build();
+        }
+        
+        private BigDecimal x;
+    }
+
+One could directly implement `Attribute` interface, but Pousse-Café provides an `AttributeBuilder` easing the
+writing of Attribute implementations and preventing the explicit use of anonymous classes which would cripple the code.
+
+In above example, `AttributeBuilder.single` returns an Attribute which expects a non-null value. If the value may be
+null, use `AttributeBuilder.optional` and make this explicit in your interface by exposing an
+`OptionalAttribute<T>` (which is essentially an `Attribute<Optional<T>>`).
+
+Let's now imagine that we need to persist instances of `Example`. Let's also imagine that the persistence tool
+we are using is able to persist the private fields of an object but does not support BigDecimal type. We still want
+`Example` to expose a BigDecimal Attribute but we need to store it using another type (e.g. String). Another possible 
+implementation of `Example` could be
+
+    class PersistableExampleImpl implements Example {
+    
+        public Attribute<BigDecimal> x() {
+            return AttributeBuilder.single(BigDecimal.class)
+                .usingDataAdapter(DataAdapters.stringBigDecimal())
+                .read(() -> x)
+                .write(value -> x = value)
+                .build();
+        }
+        
+        private String x;
+    }
+
+In above code, `DataAdapters.stringBigDecimal()` returns an implementation of `DataAdapter<String, BigDecimal>`.
+`DataAdapter<S, T>` where `S` is the type of stored value and `T` the type of the value to store, is an interface
+defining two methods, `T adaptGet(S)` and `S adaptSet(T)`, respectively
+converting the stored value and the value to store. One can directly implement its own implementation of `DataAdapter` and 
+provide it to
+`usingDataAdapter` but Pousse-Café already comes with a couple of [common ones](#common-data-adapters) defined in
+`DataAdapters`.
+
+Above approach (`Example` interface exposing an Attribute with a given type and an implementation using another type
+for persistence) enables the writing of code that interacts with an abstraction `Example` independently of persistence
+details (persisted type, conversion, etc.) which illustrates the second purpose of Attributes described at the beginning
+of this section.
+
+More information regarding Attributes can be found in [this section](#more-on-attributes).
+
 ## Implement Aggregates
 
 The central element in Pousse-Café is the Aggregate and its related Services (i.e. the Factory and the Repository).
@@ -218,27 +326,6 @@ The type of the value of an Attribute may be a primitive type, a Value Object (i
 or a collection aforementioned types. Regular POJOs may be used as well but the Attributes of an Entity should be as
 much as possible expressed in terms of Domain terms in order to prevent any leak of non-domain elements.
 
-The ``Attribute`` interface is defined as follows:
-
-    public interface Attribute<V> {
-      
-         V value();
-    
-         void value(V value);
-    
-         ...
-    }
-
-The ``value`` methods allow to read and write the attribute's value. The interface also defines additional helper
-methods which are not shown here.
-
-Defining attributes with methods returning an ``Attribute`` instance instead of explicitly defining a getter and a
-setter has the following advantages:
-
-- There is a univocal relation between a method and an attribute of the data model,
-- The definition of the data model is cleaner (less lines of code, no names including useless get/set),
-- Simple consistency constraints can be enforced implicitly (no null value, ...).
-
 Below example illustrates an implementation of ``Product.Attributes`` interface.
 
     @SuppressWarnings("serial")
@@ -268,7 +355,7 @@ Below example illustrates an implementation of ``Product.Attributes`` interface.
     }
 
 This implementation is serializable and is therefore suitable, for example, for Pousse-Café's internal memory-based
-storage (``InternalStorage``). [Other types of storage](#alternative-storages) might require additional enrichment of
+storage (``InternalStorage``). [Other types of storage](#alternative-storage) might require additional enrichment of
 the data (annotations, etc.).
 
 Pousse-Café's internal storage's purpose is testing, it should not be used by production code.
@@ -462,7 +549,7 @@ Implementations not matching the chosen storage are ignored.
 The addition of a single new Aggregate to a Model requires the writing of several classes (at least the Aggregate Root,
 the Factory, the Repository and the Data Access). In order to accelerate this
 process, Pousse-Café's [Maven plugin](/pousse-cafe-maven-plugin/plugin-info.html) provides the `add-aggregate` goal
-which creates all required classes as well as adapters for an [alternative storage](#alternative-storages) if needed.
+which creates all required classes as well as adapters for an [alternative storage](#alternative-storage) if needed.
 
 The new Aggregate is initially created without any attribute but the (required) identifier attribute.
 See [the documentation of add-aggregate](/pousse-cafe-maven-plugin/add-aggregate-mojo.html) for more details.
@@ -510,7 +597,7 @@ This attribute is optional. By default, a Message Listener is linked to the defa
 Note that this information is currently not used at runtime. However, it enables:
 
 - embedded documentation for developers, putting a given Message Listener in a context for the developer reading the code;
-- the [generation of expert-readable documentation](#generating-ddd-documentation).
+- the [generation of expert-readable documentation](#generating-expert-readable-documentation).
 
 ### In a Factory
 
@@ -733,6 +820,7 @@ started:
     runtime.start();
 
 ``defineAndImplementDefault`` method returns a Bundle builder that will use internal storage and messaging.
+In order to use another storage and messaging, use `defineThenImplement`.
 
 A call to ``Runtime``'s ``start`` method actually starts the consumption of messages by listeners. The call to
 `start` is non blocking.
@@ -994,135 +1082,169 @@ machine into account, with a single core, even a high number of threads will not
 Currently, automated collision detection and handling is not available for explicit Domain Processes' listeners and
 custom listeners. In those cases, collisions have to be handled explicitly by the developer.
 
-## Spring Integration
+## More on Attributes
 
-Instantiating a Pousse-Café Runtime inside of a Spring application is easy thanks to Pousse-Café's Spring Bridge
-(provided by `pousse-cafe-spring` project.
+Attributes [were introduced](#introducing-attributes) previously. This section describes the feature further.
 
-First, you'll need a Spring configuration class:
+### Auto-Adapters
 
-    @Configuration
-    @ComponentScan(basePackages = { "poussecafe.spring" })
-    public class AppConfiguration {
+Attributes can convert data using `DataAdapter<S, T>` instances (where `S` is the type of stored value and `T` the
+type of the Attribute). When `S` is a "primitive" type (i.e. a type supported by persistence tool), this is the
+preferred approach. When `S` and `T` are custom types (e.g. Value Objects), two classes have to be written:
+`S` and the custom Data Adapter.
+
+The problem is that most of the time, touching the custom type implies a modification
+of the custom Data Adapter as well. Therefore, it makes sense to actually group the data and their conversion logic in the same
+class, even if this breaks the
+[single responsibility principle](https://en.wikipedia.org/wiki/Single_responsibility_principle).
+
+This is the purpose of the auto-adapter: a class that contains the fields to be persisted as well as the logic to
+create that class based on the Attribute value or create an Attribute value based on stored data. The persistence
+tool must be able to persist an auto-adapter directly (e.g. if using Java serialization, the auto-adapter must
+implement `Serializable`).
+
+An auto-adapter is a class that has at least 2 methods:
+
+- `static S adapt(T)`
+- `T adapt()`
+
+The first method instantiates the auto-adapter from an Attribute's value. The second method instantiates the value
+of the Attribute based on its state.
+
+Let's take the example of a Value Object:
+
+    public class Example implements ValueObject {
     
-        @Bean
-        public Bundles bundles(
-                Messaging messaging,
-                Storage storage) {
-            MessagingAndStorage messagingAndStorage = new MessagingAndStorage(messaging, storage);
-            return new Bundles.Builder()
-                .withBundle(MyModule.configure().defineThenImplement().messagingAndStorage(messagingAndStorage).build())
-                .build();
+        public Example(String value) {
+            Objects.requireNonNull(value);
+            this.value = value;
+        }
+        
+        private String value;
+        
+        public String value() {
+            return value;
         }
     }
 
-The `poussecafe.spring` package needs to be added to the component scan to build the bridge between Pousse-Café's
-Runtime and Spring's application context (a dependency to ``pousse-cafe-spring`` needs to be added to your project). 
-This will enable the injection
-of Pousse-Café services as Spring beans and allow the injection of Spring beans in Pousse-Café services.
+Most persistence tools cannot persist this kind of class because it does not define a no-argument constructor.
+That constructor should not be added to the VO because it allows the creation of an instance that does not fulfill
+the constraints on encapsulated data (here, the fact that `value` must not be null).
 
-Note that the latter is not recommended as you would be bringing non-domain elements inside of your domain logic. In
-some cases however, this might be the preferred approach (e.g. when domain services rely on non-domain features like
-sending e-mails, etc.).
+When persisting using Java serialization, the auto-adapter for `Example` looks like this:
 
-A Pousse-Café Runtime will be automatically instantiated with configured bundles and started once Spring context is
-ready.
-
-After that, you can access Domain Processes and Repositories directly from Spring components.
-
-Below an example of a Spring Web controller allowing to submit commands to the Runtime via a REST resource:
-
-    @RestController
-    public class RestResource {
+    public class ExampleData implements Serializable {
     
-        @RequestMapping(path = "/product", method = RequestMethod.POST)
-        public void createProduct(@RequestBody CreateProductView input) {
-            ProductId productId = new ProductId(input.id);
-            runtime.submitCommand(new CreateProduct(productId));
+        public static ExampleData adapt(Example example) {
+            ExampleData data = new ExampleData();
+            data.value = example.value();
+            return data;
         }
-    
-        @Autowired
-        private Runtime runtime;
-    }
-
-A Spring Bean may define custom message listeners (i.e. contain methods annotated with `@MessageListener`). In that
-case, extending `MessageListeningBean` automatically registers the listeners upon Bean's initialization.
-
-## Alternative Storages
-
-### MongoDB
-
-To implement an Aggregate with MongoDB Data and Data Access, Pousse-Café provides an integration (available via the
-dependency ``pousse-cafe-spring-mongo``) with
-[Spring Data MongoDB](https://projects.spring.io/spring-data-mongodb/).
-
-Implementing an Aggregate (e.g. above `Product`) with MongoDB requires 3 classes/interfaces:
-
-- ``ProductData`` data class, representing the document to insert/retrieve to/from a collection,
-- ``MongoProductDataAccess`` data access class, accessing the documents,
-- ``ProductDataMongoRepository`` interface required by Spring Data to do its magic.
-
-`ProductData` is actually almost identical to the [implementation for internal storage](#aggregate-root). Spring
-Data's ``@Id`` annotation just needs to be added above ``productId`` field.
-
-`MongoProductDataAccess` looks like this:
-
-    public class MongoProductDataAccess extends MongoDataAccess<ProductId, ProductData, String> implements  ProductDataAccess<ProductData> {
-    
-        @Override
-        protected String convertId(ProductId id) {
-            return id.getValue();
-        }
-    
-        @Override
-        protected MongoRepository<ProductData, String> mongoRepository() {
-            return repository;
-        }
-    
-        @Autowired
-        private ProductMongoRepository repository;
-    
-        public List<ProductData> findByAvailableUnits(int availableUnits) {
-            return repository.findByAvailableUnits(availableUnits);
+        
+        private String value;
+        
+        public Example adapt() {
+            return new Example(value);
         }
     }
 
-`MongoDataAccess` super-class provides fills the gap between the Mongo repository and Pousse-Café's
-Data Access interface. It is also responsible for the conversion between the Domain ID and the MongoDB-specific key
-(which must be Java-serializable).
+The auto-adapter both has a no-arg constructor (the default constructor) and implements `Serializable` interface.
+At the same time, `Example` VO was not polluted with technical details nor where its consistency rules relaxed.
 
-The `repository` field is annotated with `@Autowired`. This is a particular case where a Pousse-Café component (the Data Access) actually needs direct injection by Spring (see [Spring Integration](#spring-integration)).
+Given above example, an Attribute with type `Example` can be implemented as follows:
 
-`ProductDataMongoRepository` is the Spring Data repository interface defined as follows:
-
-    public interface ProductMongoRepository extends MongoRepository<ProductData, String> {
-    
-        List<ProductData> findByAvailableUnits(int availableUnits);
+    public Attribute<Example> example() {
+        AttributeBuilder.single(Example.class)
+            .usingAutoAdapter(ExampleData.class)
+            .read(() -> example)
+            .write(value -> example = value)
+            .build();
     }
-
-The Spring configuration then looks like this:
-
-    @Configuration
-    @ComponentScan(basePackages = { "poussecafe.spring" })
-    public class AppConfiguration {
     
-        @Bean
-        public Bundles bundles(
-                Messaging messaging,
-                SpringMongoDbStorage storage) {
-            MessagingAndStorage messagingAndStorage = new MessagingAndStorage(messaging, storage);
-            return new Bundles.Builder()
-                .withBundle(MyModule.configure().defineThenImplement().messagingAndStorage(messagingAndStorage).build())
-                .build();
-        }
-    }
+    private ExampleData example;
 
-Unlike [previous example](#spring-integration), ``SpringMongoDbStorage`` is used instead of the default
-storage implementation.
+### Specific Attributes
 
-## Generating DDD documentation
+Specialized forms of `Attribute<T>` are provided by Pousse-Café in order to facilitate the use of Attributes with
+common types:
 
-Pousse-Café Doc generates DDD documentation based on a Pousse-Café project's source code. It uses javadoc
+- `OptionalAttribute<T>`: essentially implements `Attribute<Optional<T>>`;
+- `NumberAttribute<T>`: adds the possibility to add an amount to an Attribute in-place;
+- `ListAttribute<T>`: adds direct access to `List` specific operations on the Attribute's value;
+- `MapAttribute<T>`: adds direct access to `Map` specific operations on the Attribute's value;
+- `SetAttribute<T>`: adds direct access to `Set` specific operations on the Attribute's value.
+
+`NumberAttribute`'s builder requires an addition operator, Pousse-Café provides some common addition operators in
+the `AddOperators` class. Here is a full example of building a `NumberAttribute<BigDecimal>` instance:
+
+    AttributeBuilder.number(BigDecimal.class)
+            .get(() -> bigDecimal)
+            .write(value -> bigDecimal = value)
+            .addOperator(AddOperators.BIG_DECIMAL)
+            .build()
+
+If `r` references a `NumberAttribute<BigDecimal>` Attribute, then the following statement causes the value `r` to
+be incremented:
+
+    r.add(BigDecimal.ONE)
+
+which is equivalent to
+
+    r.value(r.value().add(BigDecimal.ONE))
+
+but in shorter and more readable.
+
+Note that the collection-based Attributes always return unmodifiable collections. Attempts to alter them will throw an
+exception.
+
+### Common Data Adapters
+
+The class `poussecafe.attribute.adapters.DataAdapters` contains a collection of factory methods instantiating
+common data adapters.
+
+### Entity Attributes
+
+Entity Attributes enable the implementation of one-to-one and one-to-many relations between entities. Many-to-many
+relations are implemented using an additional Aggregate acting as the relation between other Aggregates.
+
+Entity Attributes i.e. Attributes whose type is a sub-class of `poussecafe.domain.Entity` require a different
+approach because:
+
+- altering individual Attributes of an Entity has to update immediately the data (i.e. the value returned by an Entity
+Attribute is mutable, which should generally not be the case),
+- Domain Events issued while interacting with an Entity are queued at the Aggregate level.
+
+Therefore, there is a need for an intermediate class `EntityAttribute<E extends Entity>` which builds a
+`Attribute<E>` when given a reference to the Aggregate Root.
+
+Inside of an Aggregate Root's method, in order to obtain a instance of `Attribute<E>`, the following statement must
+be written:
+
+    attributes().entity().inContextOf(this)
+
+The following snippet illustrates how to set the value of an Entity Attribute:
+
+    var newEntity = setNew(attributes().entity()).withKey(someId);
+
+`newEntity` can then be used to directly alter Entity's state or call some of its methods.
+
+The `OptionalEntityAttribute` is similar to `EntityAttribute` but supports the case where no Entity is available.
+
+Both `EntityAttribute` and `OptionalEntityAttribute` implement a one-to-one relation.
+
+`EntityMapAttribute` enables the implementation of one-to-many relations. It also has a method called `inContextOf`
+which returns a `MapAttribute<K, E extends Entity>`.
+
+The following snippet illustrates how to put a new Entity in the Entities map:
+
+    var newEntity = map.putNew(someId).inContextOf(this);
+
+Again, `newEntity` can then be used to directly alter Entity's state or call some of its methods.
+
+
+## Generating expert-readable documentation
+
+Pousse-Café Doc generates DDD expert-readable documentation based on a Pousse-Café project's source code. It uses javadoc
 comments and the actual code to infer a higher level documentation understandable by domain experts.
 
 Pousse-Café's [Maven plugin](/pousse-cafe-maven-plugin/plugin-info.html) provides the `generate-doc` goal.
@@ -1236,3 +1358,23 @@ This is controlled by
 identifying the non-domain components or Modules producing the message consumed by the Message Listener;
 - `@ProducesEvent`'s `consumedByExternal` attribute which contains a list of names
 identifying the non-domain components or Modules consuming the message produced by the Message Listener;
+
+## Spring Integration
+
+Instantiating a Pousse-Café Runtime inside of a Spring application is easy thanks to Pousse-Café's
+[Spring Bridge](https://github.com/pousse-cafe/pousse-cafe-spring). See project README for more details about how
+to do so.
+
+## Alternative Storage
+
+The following plugins are currently available:
+
+- [Pousse-Café Spring Mongo](https://github.com/pousse-cafe/pousse-cafe-spring-mongo)
+- [Pousse-Café Spring JPA](https://github.com/pousse-cafe/pousse-cafe-spring-jpa)
+
+## Alternative Messaging
+
+The following plugins are currently available:
+
+- [Pousse-Café Spring Pulsar](https://github.com/pousse-cafe/pousse-cafe-spring-pulsar)
+- [Pousse-Café Spring Kafka](https://github.com/pousse-cafe/pousse-cafe-spring-kafka)
