@@ -57,11 +57,11 @@ title: Home
           <ul>
             <li>A Pousse-Café model (i.e. a set of Aggregates and Services) is executed by a Runtime</li>
             <li>Commands are submitted to the Runtime</li>
-            <li>Commands are handled by Aggregates using Message Listeners</li>
-            <li>Aggregates emit Domain Events</li>
+            <li>Commands are handled by Message Listeners defined in Aggregates or their Factory or Repository</li>
+            <li>Aggregates issue Domain Events</li>
             <li>The set of Message Listeners executed following the submission of a Command defines a Domain Process</li>
-            <li>Aggregates may be grouped in Modules</li>
-            <li>Domain Events may cross Modules borders</li>
+            <li>Aggregates can be grouped in Modules</li>
+            <li>Domain Events can cross Modules borders</li>
           </ul>
           <p>See the <a href="/doc/reference-guide">reference guide</a> for more information.</p>
         </div>
