@@ -21,6 +21,7 @@ permalink: /doc/reference-guide/
 - [Message Listeners execution order](#message-listeners-execution-order)
 - [Collision Handling](#collision-handling)
 - [More on Attributes](#more-on-attributes)
+- [Configuring Services](#configuring-services)
 - [Generating expert-readable documentation](#generating-expert-readable-documentation)
 - [Spring Integration](#spring-integration)
 - [Storage Plug-ins](#storage-plug-ins)
@@ -1241,6 +1242,38 @@ The following snippet illustrates how to put a new Entity in the Entities map:
     var newEntity = map.putNew(someId).inContextOf(this);
 
 Again, `newEntity` can then be used to directly alter Entity's state or call some of its methods.
+
+
+## Configuring Services
+
+Sometimes, Services need some external configuration (e.g. a URL to inject into a text). When [instantiating
+the Runtime](#run-you-model), configuration entries may be added with Runtime Builder's `withConfiguration` methods.
+Runtime's `poussecafe.runtime.Configuration` instance can be injected in a Service, giving access to
+configuration entries.
+
+For example, let's have a Runtime created as follows:
+
+    new Runtime.Builder()
+        ...
+        .withConfiguration("X", "Y")
+        ...
+        .build();
+
+Given a Service defined as follows:
+
+    public class MyService implements Service {
+    
+        public String processConfiguration() {
+            return "Prefix " + configuration.value("X").orElseThrow();
+        }
+    
+        private Configuration configuration;
+    }
+
+Then, the value returned when calling `MyService`'s `processConfiguration` method is `Prefix Y`.
+
+When using Pousse-Café [in the context of a Spring application](#spring-integration), configuration entries may be
+read from application properties.
 
 
 ## Generating expert-readable documentation
