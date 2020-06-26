@@ -15,11 +15,11 @@ title: Home
     <div class="container">
       <div class="row">
           <div class="col-md-4">
-              <h3>Domain-Driven Design Centric</h3>
+              <h3>Business Process Oriented</h3>
               <ul>
-                <li>Explicit DDD primitives</li>
-                <li>Concentration of behavior in DDD logic</li>
-                <li>Integrated runtime</li>
+                <li>Focus on processes of the domain</li>
+                <li>Defined using DDD primitives</li>
+                <li>Favors scalable implementation</li>
               </ul>
           </div>
           <div class="col-md-4">
@@ -35,7 +35,7 @@ title: Home
               <ul>
                 <li>Clean separation of concerns</li>
                 <li>Increased flexibility for technology choice</li>
-                <li>Reduced risk of technology change</li>
+                <li>Reduced risk upon technology change</li>
               </ul>
           </div>
       </div>
@@ -55,12 +55,13 @@ title: Home
         </div>
         <div class="col-md-4">
           <ul>
-            <li>A Pousse-Café model (i.e. a set of Aggregates and Services) is executed by a Runtime</li>
+            <li>Business processes are defined in terms of Aggregates consuming messages and issuing events upon state
+            change</li>
+            <li>Aggregates and Services are grouped in Modules</li>
+            <li>Modules are loaded into Pousse-Café's Runtime</li>
             <li>Commands are submitted to the Runtime</li>
-            <li>Commands are handled by Message Listeners defined in Aggregates or their Factory or Repository</li>
+            <li>The Runtime forwards the messages to Aggregates or their Factory or Repository</li>
             <li>Aggregates issue Domain Events</li>
-            <li>The set of Message Listeners executed following the submission of a Command defines a Domain Process</li>
-            <li>Aggregates can be grouped in Modules</li>
             <li>Domain Events can cross Modules borders</li>
           </ul>
           <p>See the <a href="/doc/reference-guide">reference guide</a> for more information.</p>
@@ -93,7 +94,7 @@ title: Home
       -DartifactId=test \
       -Dversion=0.0.0-SNAPSHOT</code></pre></li>
         <li>Open the project in your favorite IDE</li>
-        <li><a href="{{ '/doc/sample-app' | prepend: site.baseurl }}">Take the tour of the code</a></li>
+        <li>Explore and execute the tests</li>
       </ol>
     </div>
   </section>
