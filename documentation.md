@@ -1262,27 +1262,98 @@ Given above example, an Attribute with type `Example` can be implemented as foll
     
     private ExampleData example;
 
-### Specific Attributes
+Note that a data adapter can always be built from an auto-adapter by using factory method
+`DataAdapters.auto(MyType.class, MyTypeAutoAdapter.class)` which returns an instance of
+`DataAdapter<MyTypeAutoAdapter, MyType>`.
 
-Specialized forms of `Attribute<T>` are provided by Pousse-Café in order to facilitate the use of Attributes with
-common types:
+### Optional Attributes
 
-- `OptionalAttribute<T>`: essentially implements `Attribute<Optional<T>>`;
-- `NumberAttribute<T>`: adds the possibility to add an amount to an Attribute in-place;
-- `ListAttribute<T>`: adds direct access to `List` specific operations on the Attribute's value;
-- `MapAttribute<T>`: adds direct access to `Map` specific operations on the Attribute's value;
-- `SetAttribute<T>`: adds direct access to `Set` specific operations on the Attribute's value.
+Pousse-Café enforces the [null object pattern](https://en.wikipedia.org/wiki/Null_object_pattern): calling
+`value` on an attribute instance and passing it a `null` value will throw an exception. Therefore, `value()` will never 
+return `null` except initially before any value was actually set and the implementation does not provide a default value.
+
+An attribute which may be undefined in the lifecycle of an entity should therefore be an `OptionalAttribute<T>` which 
+actually extends `Attribute<Optional<T>>`.
+
+Creating an optional attribute is done as follows:
+
+    public OptionalAttribute<String> myAttribute() {
+        return AttributeBuilder.optional(String.class)
+                .read(() -> myAttribute)
+                .write(value -> myAttribute = value)
+                .build();
+    }
+    
+    private String myAttribute;
+
+When stored type does not match actual attribute type, there are 3 possible ways of converting data:
+
+- Use a data adapter
+- Use an [auto-adapter](#auto-adapters)
+- Directly provide conversion functions
+
+With a data adapter:
+
+    public OptionalAttribute<MyType> myAttribute() {
+        return AttributeBuilder.optional(MyType.class)
+                .usingDataAdapter(MyTypeAdapter.instance())
+                .read(() -> myAttribute)
+                .write(value -> myAttribute = value)
+                .build();
+    }
+    
+    private StoredType myAttribute;
+
+where `MyTypeAdapter` extends `DataAdapter<StoredType, MyType>`.
+
+With an auto-adapter:
+
+    public OptionalAttribute<MyType> myAttribute() {
+        return AttributeBuilder.optional(MyType.class)
+                .usingAutoAdapter(MyTypeAutoAdapter.class)
+                .read(() -> myAttribute)
+                .write(value -> myAttribute = value)
+                .build();
+    }
+    
+    private MyTypeAutoAdapter myAttribute;
+
+With conversion functions:
+
+    public OptionalAttribute<MyType> myAttribute() {
+        return AttributeBuilder.optional(MyType.class)
+                .storedAs(StoredType.class)
+                .adaptOnRead(this::convertStoredTypeIntoMyType)
+                .read(() -> myAttribute)
+                .adaptOnWrite(this::convertMyTypeIntoStoredType)
+                .write(value -> myAttribute = value)
+                .build();
+    }
+    
+    private StoredType myAttribute;
+
+`convertStoredTypeIntoMyType` is an instance of `Function<StoredType, MyType>`
+and `convertMyTypeIntoStoredType` is an instance of `Function<MyType, StoredType>`.
+
+
+### Number Attributes
+
+Number attributes extend `NumberAttribute<T>` and enable the in-place update of numbers using mathematical operators.
 
 `NumberAttribute`'s builder requires an addition operator, Pousse-Café provides some common addition operators in
 the `AddOperators` class. Here is a full example of building a `NumberAttribute<BigDecimal>` instance:
 
-    AttributeBuilder.number(BigDecimal.class)
-            .get(() -> bigDecimal)
-            .write(value -> bigDecimal = value)
-            .addOperator(AddOperators.BIG_DECIMAL)
-            .build()
+    public NumberAttribute<Integer> myAttribute() {
+        return AttributeBuilder.number(Integer.class)
+                .read(() -> myAttribute)
+                .write(value -> myAttribute = value)
+                .addOperator(AddOperators.INTEGER)
+                .build();
+    }
+    
+    private Integer myAttribute;
 
-If `r` references a `NumberAttribute<BigDecimal>` Attribute, then the following statement causes the value `r` to
+Given `r` references a `NumberAttribute<BigDecimal>` Attribute, then the following statement causes the value of `r` to
 be incremented:
 
     r.add(BigDecimal.ONE)
@@ -1291,11 +1362,244 @@ which is equivalent to
 
     r.value(r.value().add(BigDecimal.ONE))
 
-but in shorter and more readable.
+### List Attributes
 
-Note that the collection-based Attributes return mutable collections. Modifying them and updating the Aggregate will
-persist the changes made to the collections.
+List attributes extend `ListAttribute<T>` and enable direct modification of stored list by mutating the attribute
+value.
 
+    public ListAttribute<String> myAttribute() {
+        return AttributeBuilder.list(String.class)
+                .withList(myAttribute)
+                .build();
+    }
+    
+    private ArrayList<String> myAttribute = new ArrayList<>();
+
+Note that `myAttribute` has to be initialized (i.e. it cannot be `null`).
+
+With above list attribute, the execution of
+
+    myAttribute().value().add("test")
+
+adds `"test"` to `myAttribute` list.
+
+When the type of storage list elements does not match the type of attribute list, there are 3 possible ways of
+converting data:
+
+- Use a data adapter
+- Use an [auto-adapter](#auto-adapters)
+- Directly provide conversion functions
+
+With a data adapter:
+
+    public ListAttribute<MyType> myAttribute() {
+        return AttributeBuilder.list(MyType.class)
+                .usingItemDataAdapter(MyTypeAdapter.instance())
+                .withList(myAttribute)
+                .build();
+    }
+    
+    private ArrayList<StoredType> myAttribute = new ArrayList<>();
+
+where `MyTypeAdapter` extends `DataAdapter<StoredType, MyType>`.
+
+With an auto-adapter:
+
+    public ListAttribute<MyType> myAttribute() {
+        return AttributeBuilder.list(MyType.class)
+                .usingAutoAdapter(MyTypeAutoAdapter.class)
+                .withList(myAttribute)
+                .build();
+    }
+    
+    private ArrayList<MyTypeAutoAdapter> myAttribute = new ArrayList<>();
+
+With conversion functions:
+
+    public ListAttribute<MyType> myAttribute() {
+        return AttributeBuilder.list(MyType.class)
+                .itemsStoredAs(StoredType.class)
+                .adaptOnGet(this::convertStoredTypeIntoMyType)
+                .adaptOnSet(this::convertMyTypeIntoStoredType)
+                .withList(myAttribute)
+                .build();
+    }
+    
+    private ArrayList<MyTypeAutoAdapter> myAttribute = new ArrayList<>();
+
+`convertStoredTypeIntoMyType` is an instance of `Function<StoredType, MyType>`
+and `convertMyTypeIntoStoredType` is an instance of `Function<MyType, StoredType>`.
+
+### Map Attributes
+
+Map attributes extend `MapAttribute<K, V>` and enable direct modification of stored map by mutating the attribute
+value.
+
+    public MapAttribute<Integer, String> myAttribute() {
+        return AttributeBuilder.map(Integer.class, String.class)
+                .withMap(myAttribute)
+                .build();
+    }
+    
+    private HashMap<Integer, String> myAttribute = new HashMap<>();
+
+Note that `myAttribute` has to be initialized (i.e. it cannot be `null`).
+
+With above map attribute, the execution of
+
+    myAttribute().value().put(1, "test")
+
+adds entry `(1, "test")` to `myAttribute` map.
+
+When the type of storage map entries (key and/or value type(s)) does not match the type of attribute map entries, there are 
+2 possible ways of converting data:
+
+- Use data adapters
+- Directly provide conversion functions
+
+With data adapters:
+
+    public MapAttribute<MyKeyType, MyValueType> myAttribute() {
+        return AttributeBuilder.map(MyKeyType.class, MyValueType.class)
+                .usingEntryDataAdapters(
+                    MyKeyTypeAdapter.instance(),
+                    MyValueTypeAdapter.instance())
+                .withMap(myAttribute)
+                .build();
+    }
+    
+    private HashMap<MyStoredKeyType, MyStoredValueType> myAttribute = new HashMap<>();
+
+where
+- `MyKeyTypeAdapter` extends `DataAdapter<MyStoredKeyType, MyKeyType>` and
+- `MyValueTypeAdapter` extends `DataAdapter<MyStoredValueType, MyValueType>`.
+
+With conversion functions:
+
+    public MapAttribute<MyKeyType, MyValueType> myAttribute() {
+        return AttributeBuilder.map(MyKeyType.class, MyValueType.class)
+                .entriesStoredAs(MyStoredKeyType.class, MyStoredValueType.class)
+                .adaptOnRead(this::convertMyStoredKeyTypeIntoMyKeyType,
+                    this::convertMyStoredValueTypeIntoMyValueType)
+                .adaptOnWrite(this::convertMyKeyTypeIntoMyStoredKeyType,
+                    this::convertMyValueTypeIntoMyStoredValueType)
+                .withMap(myAttribute)
+                .build();
+    }
+    
+    private HashMap<MyStoredKeyType, MyStoredValueType> myAttribute = new HashMap<>();
+
+- `convertMyStoredKeyTypeIntoMyKeyType` is an instance of `Function<MyStoredKeyType, MyKeyType>`
+- `convertMyStoredValueTypeIntoMyValueType` is an instance of `Function<MyStoredValueType, MyValueType>`
+- `convertMyKeyTypeIntoMyStoredKeyType` is an instance of `Function<MyValueType, MyStoredValueType>`
+- `convertMyValueTypeIntoMyStoredValueType` is an instance of `Function<MyValueType, MyStoredValueType>`
+
+From the above, it may seem that auto-adapters cannot be used with map attributes. It is not the case as an data adapter
+can always be built from an auto-adapter (see [this section](#auto-adapters)).
+
+Maps may be backed by regular collections (like a list). This may be required by some storage technologies or just more
+convenient in terms of data schema. There are 2 cases:
+
+- either the values of the attribute map (not the stored one) contain the key
+- either they do not.
+
+In the first case, the preferred approach is to convert the elements of stored collection, then extract the key.
+Such a map attribute is built as follows:
+
+    public MapAttribute<Integer, String> myAttribute() {
+        return AttributeBuilder.map(MyKeyType.class, MyValueType.class)
+                .usingItemDataAdapter(MyValueTypeAdapter.instance())
+                .withKeyExtractor(MyValueType::getKey)
+                .withCollection(myAttribute)
+                .build();
+    }
+    
+    private ArrayList<MyStoredValueType> myAttribute = new HashMap<>();
+
+where `MyValueType` is able to compute its key and this key can be obtained by calling instance method `getKey()`.
+
+If above condition is not met, then an entry data adapter should be used:
+
+    public MapAttribute<Integer, String> myAttribute() {
+        return AttributeBuilder.map(MyKeyType.class, MyValueType.class)
+                .usingEntryDataAdapter(MyValueTypeEntryAdapter.instance())
+                .withCollection(myAttribute)
+                .build();
+    }
+    
+    private ArrayList<MyStoredValueType> myAttribute = new HashMap<>();
+
+where `MyStoredValueType` directly or indirectly contains the key which is computed by `MyValueTypeEntryAdapter`.
+`MyValueTypeEntryAdapter` extends `DataAdapter<MyStoredValueType, Entry<MyKeyType, MyValueType>>`.
+
+
+### Set Attributes
+
+Set attributes extend `SetAttribute<T>` and enable direct modification of stored set by mutating the attribute
+value.
+
+    public SetAttribute<String> myAttribute() {
+        return AttributeBuilder.set(String.class)
+                .withSet(myAttribute)
+                .build();
+    }
+    
+    private HashSet<String> myAttribute = new HashSet<>();
+
+Note that `myAttribute` has to be initialized (i.e. it cannot be `null`).
+
+With above set attribute, the execution of
+
+    myAttribute().value().add("test")
+
+adds `"test"` to `myAttribute` set.
+
+When the type of storage set elements does not match the type of attribute set, there are 3 possible ways of
+converting data:
+
+- Use a data adapter
+- Use an [auto-adapter](#auto-adapters)
+- Directly provide conversion functions
+
+With a data adapter:
+
+    public SetAttribute<MyType> myAttribute() {
+        return AttributeBuilder.set(MyType.class)
+                .usingItemDataAdapter(MyTypeAdapter.instance())
+                .withSet(myAttribute)
+                .build();
+    }
+    
+    private HashSet<StoredType> myAttribute = new HashSet<>();
+
+where `MyTypeAdapter` extends `DataAdapter<StoredType, MyType>`.
+
+With an auto-adapter:
+
+    public ListAttribute<MyType> myAttribute() {
+        return AttributeBuilder.set(MyType.class)
+                .usingAutoAdapter(MyTypeAutoAdapter.class)
+                .withSet(myAttribute)
+                .build();
+    }
+    
+    private HashSet<MyTypeAutoAdapter> myAttribute = new HashSet<>();
+
+With conversion functions:
+
+    public ListAttribute<MyType> myAttribute() {
+        return AttributeBuilder.set(MyType.class)
+                .itemsStoredAs(StoredType.class)
+                .adaptOnGet(this::convertStoredTypeIntoMyType)
+                .adaptOnSet(this::convertMyTypeIntoStoredType)
+                .withSet(myAttribute)
+                .build();
+    }
+    
+    private HashSet<MyTypeAutoAdapter> myAttribute = new HashSet<>();
+
+`convertStoredTypeIntoMyType` is an instance of `Function<StoredType, MyType>`
+and `convertMyTypeIntoStoredType` is an instance of `Function<MyType, StoredType>`.
 
 ### Common Data Adapters
 
