@@ -1,0 +1,8 @@
+graph {
+splines=spline;
+overlap=false;
+"CustomerRoot"[shape=box,style=bold];
+"Message"[shape=box,style=bold];
+"Product"[shape=box,style=bold];
+"OrderRoot"[shape=box,style=bold];
+}

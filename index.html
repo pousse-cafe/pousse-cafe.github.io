@@ -4,98 +4,269 @@ title: Home
 ---
 
 <div class="home">
-  <section class="jumbotron">
-    <div class="container">
-      <h1>Pousse-Café Framework</h1>
-      <h2>Distil knowledge with your code</h2>
-    </div>
-  </section>
-
-  <section class="benefits">
-    <div class="container">
-      <div class="row">
-          <div class="col-md-4">
-              <h3>Business Process Oriented</h3>
-              <ul>
-                <li>Focus on processes of the domain</li>
-                <li>Defined using DDD primitives</li>
-                <li>Favors scalable implementation</li>
-              </ul>
-          </div>
-          <div class="col-md-4">
-              <h3>Living Documentation Ready</h3>
-              <ul>
-                <li>Expert-readable documentation</li>
-                <li>Generated at build time</li>
-                <li>Output in PDF and HTML</li>
-              </ul>
-          </div>
-          <div class="col-md-4">
-              <h3>Technology Independent</h3>
-              <ul>
-                <li>Clean separation of concerns</li>
-                <li>Increased flexibility for technology choice</li>
-                <li>Reduced risk upon technology change</li>
-              </ul>
-          </div>
-      </div>
-    </div>
-  </section>
-
-  <section id="big-picture">
-    <div class="container">
-      <div class="row">
-        <div class="col-md-12">
-            <h2>How it works</h2>
+    <section class="jumbotron">
+        <div class="container">
+            <class="row">
+                <div class="col">
+                    <h1>Pousse-Café Framework</h1>
+                    <h2>Distil knowledge with your code</h2>
+                </div>
+            </class>
+            <div class="row benefits">
+                <div class="col-md-4">
+                    <h2>
+                        Efficient<br> Process Design
+                    </h2>
+                    <ul>
+                        <li>Reason and communicate<br> at domain process level
+                        </li>
+                        <li>Design using <a href="/doc/emil">EMIL</a></li>
+                        <li>Implement using Java</li>
+                    </ul>
+                </div>
+                <div class="col-md-4">
+                    <h2>Scalable Implementation</h2>
+                    <ul>
+                        <li>Leverage <a href="https://en.wikipedia.org/wiki/Domain-driven_design">DDD</a></li>
+                        <li>Adopt event-based processing</li>
+                        <li>Write applications ready for distributed processing</li>
+                    </ul>
+                </div>
+                <div class="col-md-4">
+                    <h2>
+                        Pluggable<br> Storage &amp; Messaging
+                    </h2>
+                    <ul>
+                        <li>Cleanly separate business logic and data</li>
+                        <li>Be flexible in your technology choices</li>
+                        <li>Reduce risk upon technology change</li>
+                    </ul>
+                </div>
+            </div>
         </div>
-      </div>
-      <div class="row">
-        <div class="col-md-8">
-          <img src="img/big_picture.svg">
+    </section>
+
+    <section id="big-picture">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-12">
+                    <h2>Efficient Process Design and Communication</h2>
+                </div>
+            </div>
+
+            <section class="subsection">
+                <div class="row">
+                    <div class="col-md-6">
+                        <ul>
+                            <li>The <a href="/doc/emil">Extended Messaging Intermediate Language (EMIL)</a> enables
+                                a global view of processes, even if their implementation is scattered across a multitude
+                                of components
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <pre><code>process OrderPlacement
+
+PlaceOrder? -> Ru{PlaceOrderRunner}
+    @Product[placeOrder]:
+        :OrderPlaced!# -> F{OrderFactory}[buildPlacedOrder]
+            @OrderRoot[onAdd]:
+                :OrderCreated! -> P{Messaging}
+                :.
+        :OrderRejected!# -> P{Messaging}
+        :.</code></pre>
+                        <p class="caption">EMIL process representation</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="subsection">
+                <div class="row">
+                    <div class="col-md-6">
+                        <ul>
+                            <li>While EMIL helps for high level design, the Java code remains the single source of
+                                truth (i.e. EMIL only provides a partial view of the actual implementation)</li>
+                            <li>Pousse-Café comes with tools enabling a smooth "communication" between EMIL and
+                                Java</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <pre><code class="java">@MessageListener(processes = OrderPlacement.class)
+public OrderRoot buildPlacedOrder(OrderPlaced event) {
+    OrderDescription description = event.description().value();
+    OrderId id = new OrderId(event.productId().value(),
+        description.customerId(), description.reference());
+    OrderRoot order = newAggregateWithId(id);
+    order.attributes().units().value(description.units());
+    return order;
+}</code></pre>
+                        <p class="caption">Message listener implementation</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="subsection">
+                <div class="row">
+                    <div class="col-md-6">
+                        <ul>
+                            <li>EMIL and Java are generally not suitable for communication with the business</li>
+                            <li>Pousse-Café comes with a tool which generates expert-readable documentation based
+                                on the code</li>
+                            <li>Documentation is produced both in <a href="/shop-doc/index.html">HTML</a> and <a
+                                href="/shop-doc/pousse-cafe-shop-app-Latest.pdf">PDF</a> (see this <a
+                                href="https://github.com/pousse-cafe/pousse-cafe-shop-app">sample project</a>)
+                            </li>
+                            <li>This enables quick feedback from experts on the model</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <img src="/shop-doc/img/shop_orderplacement.png" alt="process graph example">
+                        <p class="caption">Process graph</p>
+                    </div>
+                </div>
+            </section>
         </div>
-        <div class="col-md-4">
-          <ul>
-            <li>Business processes are defined in terms of Aggregates consuming messages and issuing events upon state
-            change</li>
-            <li>Aggregates and Services are grouped in Modules</li>
-            <li>Modules are loaded into Pousse-Café's Runtime</li>
-            <li>Commands are submitted to the Runtime</li>
-            <li>The Runtime forwards the messages to Aggregates or their Factory or Repository</li>
-            <li>Aggregates issue Domain Events</li>
-            <li>Domain Events can cross Modules borders</li>
-          </ul>
-          <p>See the <a href="/doc/reference-guide">reference guide</a> for more information.</p>
+    </section>
+
+    <section id="an-example">
+        <div class="container">
+            <div class="row">
+                <div class="col">
+                    <h2>Scalable Implementation</h2>
+                </div>
+            </div>
+            <section class="subsection">
+                <div class="row">
+                    <div class="col-md-6">
+                        <ul>
+                            <li>Processes are executed by asynchronously handling messages</li>
+                            <li>Messages are submitted by external actors (commands) or
+                            issued by the system itself (events)</li>
+                            <li>Aggregates are first-class citizens</li>
+                            <li>Messages are handled by message listeners which create, update or delete aggregates</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <img class="fill-width" src="/img/big_picture.svg" alt="message handling illustration">
+                        <p class="caption">Message handling in a Pousse-Café runtime</p>
+                    </div>
+                </div>
+            </section>
+            <section class="subsection">
+                <div class="row">
+                    <div class="col-md-6">
+                        <ul>
+                            <li>In order to follow DDD principles, Pousse-Café automatically creates/updates/deletes a
+                            single aggregate per transaction</li>
+                            <li>Transactions are automatically started by Pousse-Café upon execution of message
+                            listeners</li>
+                            <li>Developers only have to write the listeners and their container</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <pre><code>"Compute aggregate identifiers to update"; // Code actually written
+while("all identifiers are not handled") {
+    "Start transaction";
+    "Fetch aggregate to update";
+    "Execute update listener"; // Code actually written
+    "Update aggregate;"
+    "End transaction";
+}</code></pre>
+                        <p class="caption">Algorithm describing aggregate(s) update upon message consumption</p>
+                    </div>
+                </div>
+            </section>
+            <section class="subsection">
+                <div class="row">
+                    <div class="col-md-6">
+                        <ul>
+                            <li>With parallel processing, the same aggregate may be updated at the same time by different
+                                execution threads: this is a "collision"</li>
+                            <li>On a single machine, Pousse-Café uses multi-threading while
+                                guaranteeing the absence of collision</li>
+                            <li>When the same application is executed by several machines, collisions cannot be avoided
+                                in general</li>
+                            <li>Pousse-Café handles collisions by automatically retrying message consumptions
+                                causing one</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <img class="fill-width" src="/img/collision.svg" alt="collision illustration">
+                        <p class="caption">Collision handling</p>
+                    </div>
+                </div>
+            </section>
         </div>
-      </div>
-    </div>
-  </section>
+    </section>
 
-  <section id="an-example">
-    <div class="container">
-      <h2>An Example</h2>
+    <section id="an-example">
+        <div class="container">
+            <div class="row">
+                <div class="col">
+                    <h2>Pluggable Storage &amp; Messaging</h2>
+                </div>
+            </div>
 
-      <p>There is <a target="_blank" href="https://github.com/pousse-cafe/pousse-cafe-shop-app">an example application available in
-      GitHub</a>. See README for instructions about how to run it and play with it. You can also just check-out the
-      code.</p>
-    </div>
-  </section>
+            <section class="subsection">
+                <div class="row">
+                    <div class="col-md-6">
+                        <ul>
+                            <li>Model code is written against an abstract data model</li>
+                            <li>The actual implementation of the abstract data model depends on the storage technology</li>
+                            <li>The amount of implementation code is small compared to model code</li>
+                            <li>Changing storage technology only impacts a limited part of the code base</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="figure-frame">
+                            <img class="fill-width" src="/img/storage.svg" alt="root storage class diagram">
+                        </div>
+                        <p class="caption">Static class diagram for a sample aggregate root</p>
+                    </div>
+                </div>
+            </section>
 
-  <section id="get-started">
-      <div class="container">
-      <h2>Get started!</h2>
-      <ol>
-        <li><p>Generate your first Pousse-Café project (do not forget to replace archetype version with the latest
-        <img alt="latest version" src="https://maven-badges.herokuapp.com/maven-central/org.pousse-cafe-framework/pousse-cafe/badge.svg">):
-        </p> <pre><code class="bash">mvn archetype:generate -B \
+            <section class="subsection">
+                <div class="row">
+                    <div class="col-md-6">
+                        <ul>
+                            <li>Messages have an abstract definition</li>
+                            <li>Their implementation depends on the messaging technology</li>
+                            <li>The amount of implementation code is small compared to model code</li>
+                            <li>Changing messaging technology only impacts a limited part of the code base</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="figure-frame">
+                            <img class="fill-width" src="/img/messaging.svg" alt="messaging class diagram">
+                        </div>
+                        <p class="caption">Static class diagram for sample command and domain event</p>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </section>
+
+    <section id="get-started">
+        <div class="container">
+            <h2>Get started!</h2>
+            <ol>
+                <li><p>
+                        Generate your first Pousse-Café project (do not forget to replace archetype version with the
+                        latest <img alt="latest version"
+                            src="https://maven-badges.herokuapp.com/maven-central/org.pousse-cafe-framework/pousse-cafe/badge.svg">):
+                    </p> <pre>
+                        <code class="bash">mvn archetype:generate -B \
       -DarchetypeGroupId=org.pousse-cafe-framework \
       -DarchetypeArtifactId=pousse-cafe-sample-app-archetype \
       -DarchetypeVersion=${pousse-cafe.version} \
       -DgroupId=test \
       -DartifactId=test \
-      -Dversion=0.0.0-SNAPSHOT</code></pre></li>
-        <li>Open the project in your favorite IDE</li>
-        <li>Explore and execute the tests</li>
-      </ol>
-    </div>
-  </section>
+      -Dversion=0.0.0-SNAPSHOT</code>
+                    </pre></li>
+                <li>Open the project in your favorite IDE</li>
+                <li>Explore and execute the tests</li>
+            </ol>
+        </div>
+    </section>
 </div>

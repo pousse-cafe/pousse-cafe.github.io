@@ -1,0 +1,4 @@
+digraph {
+splines=spline;
+"CustomerFactory.createCustomer(CreateCustomer)"[shape=ellipse];
+}

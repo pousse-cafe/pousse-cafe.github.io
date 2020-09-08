@@ -1,0 +1,7 @@
+graph {
+splines=spline;
+overlap=false;
+"ContentType" -- "Message" [style=solid];
+"Message"[shape=box,style=bold];
+"ContentType"[shape=ellipse];
+}

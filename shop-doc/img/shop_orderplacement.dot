@@ -1,0 +1,9 @@
+digraph {
+splines=spline;
+"Product.placeOrder(PlaceOrder)" -> "OrderFactory.buildPlacedOrder(OrderPlaced)" [style=solid];
+"OrderFactory.buildPlacedOrder(OrderPlaced)" -> "Messaging" [style=solid];
+"Product.placeOrder(PlaceOrder)" -> "Messaging" [style=dotted];
+"OrderFactory.buildPlacedOrder(OrderPlaced)"[shape=ellipse];
+"Product.placeOrder(PlaceOrder)"[shape=ellipse];
+"Messaging"[shape=box,style=dashed];
+}

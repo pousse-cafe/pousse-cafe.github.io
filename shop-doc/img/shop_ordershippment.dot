@@ -1,0 +1,6 @@
+digraph {
+splines=spline;
+"OrderRoot.ship(ShipOrder)" -> "Messaging" [style=solid];
+"OrderRoot.ship(ShipOrder)"[shape=ellipse];
+"Messaging"[shape=box,style=dashed];
+}

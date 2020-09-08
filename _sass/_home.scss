@@ -14,21 +14,26 @@
       padding: 0;
       border-bottom: none;
     }
-  }
-
-  .benefits {
-    h3 {
-      text-transform: uppercase;
+    
+    .benefits {
+        h2 {
+            text-transform: uppercase;
+        }
     }
   }
 
   h2 {
     text-transform: uppercase;
+    margin-top: 50px;
   }
 
   #big-picture {
     img {
         max-width: 100%;
     }
+  }
+
+  section.subsection {
+    margin-top: 50px;
   }
 }

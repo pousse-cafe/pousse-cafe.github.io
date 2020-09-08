@@ -1,0 +1,19 @@
+digraph {
+splines=spline;
+"OrderShippment" -> "MessageFactory.buildMessage(OrderReadyForShipping)" [style=solid];
+"MessageFactory.buildMessage(OrderReadyForShipping)" -> "Communication System" [style=solid];
+"MessageFactory.buildMessage(OrderCreated)" -> "Communication System" [style=solid];
+"MessageFactory.buildMessage(OrderSettled)" -> "Communication System" [style=solid];
+"OrderPlacement" -> "MessageFactory.buildMessage(OrderCreated)" [style=solid];
+"OrderPlacement" -> "MessageFactory.buildMessage(OrderRejected)" [style=solid];
+"MessageFactory.buildMessage(OrderRejected)" -> "Communication System" [style=solid];
+"OrderSettlement" -> "MessageFactory.buildMessage(OrderSettled)" [style=solid];
+"MessageFactory.buildMessage(OrderSettled)"[shape=ellipse];
+"MessageFactory.buildMessage(OrderCreated)"[shape=ellipse];
+"MessageFactory.buildMessage(OrderReadyForShipping)"[shape=ellipse];
+"MessageFactory.buildMessage(OrderRejected)"[shape=ellipse];
+"OrderShippment"[shape=box,style=dashed];
+"OrderSettlement"[shape=box,style=dashed];
+"OrderPlacement"[shape=box,style=dashed];
+"Communication System"[shape=box,style=dashed];
+}

@@ -694,6 +694,15 @@ When new Aggregates are created, Pousse-Café automatically starts a transaction
 it when persisting the newly created Aggregates. The creation itself i.e. the execution of the message listener
 happens outside of the transaction (actually, before it).
 
+    while("all create listeners not executed") {
+        "Execute create listener"; // Code actually written
+        while("all created aggregates not persisted") {
+            "Start transaction";
+            "Add aggregate";
+            "End transaction";
+        }
+    }
+
 Note that there cannot be several listeners per Factory consuming the same message.
 
 
@@ -778,6 +787,16 @@ listener must handle this)
 - `UpdateOrCreateOneRunner`: update the target aggregate or expect its creation if it does not exist (a factory
 listener must handle this)
 
+Below algorithm summarizes how an aggregate root listener and its runner are executed and how transactions are handled.
+
+    "Compute aggregate identifiers to update"; // Runner code
+    while("all identifiers are not handled") {
+        "Start transaction";
+        "Fetch aggregate to update";
+        "Execute update listener"; // Listener code
+        "Update aggregate;"
+        "End transaction";
+    }
 
 ### In a Repository
 
@@ -795,6 +814,13 @@ Below example illustrates a listener in a Repository:
 
 Note that there cannot be several listeners per Repository consuming the same message.
 
+Below algorithm summarizes how a repository listener is executed and how transactions are handled.
+
+    while("all delete listeners not executed") {
+        "Start transaction";
+        "Execute delete listener"; // Code actually written
+        "End transaction";
+    }
 
 ### In an Explicit Domain Process
 
