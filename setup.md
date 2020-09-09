@@ -9,7 +9,7 @@ permalink: /doc/setup/
 Use our [Maven](http://maven.apache.org/) archetype and modify generated project to your liking (do not forget to replace archetype version with the latest
 <img alt="latest version" src="https://maven-badges.herokuapp.com/maven-central/org.pousse-cafe-framework/pousse-cafe-sample-app-archetype/badge.svg">):
 
-    mvn archetype:generate -B -DarchetypeGroupId=org.pousse-cafe-framework -DarchetypeArtifactId=pousse-cafe-sample-app-archetype -DarchetypeVersion=${pousse-cafe.version} -DgroupId=test -DartifactId=test -Dversion=0.1.0-SNAPSHOT
+    mvn archetype:generate -B -DarchetypeGroupId=org.pousse-cafe-framework -DarchetypeArtifactId=pousse-cafe-sample-app-archetype -DarchetypeVersion=$ARCHETYPE_VERSION -DgroupId=test -DartifactId=test -Dversion=0.1.0-SNAPSHOT
 
 Above command creates a folder called `test` containing a Maven project with all required dependencies to build your
 first Pousse-Café based application.
