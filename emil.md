@@ -28,9 +28,9 @@ process InvoiceManagement
 SendCustomerInvoice? -> Ru{SendRunner}
     @Invoice[send]:
         :CustomerInvoiceSent! -> . [Communication]
-        :InvoiceAged! ->
+        :InvoiceAged! -> Ru{UpdateRunner}
             @InvoiceStatistics[update]
-            :.
+        :.
 ```
 
 `process X` statement tells the name of the process being described. If there is not focus on a particular process, `*` can be used instead (i.e. all processes are described). In the following, EMIL snippets will be shown so this statement will be ignored. It is however mandatory in full EMIL descriptions.
@@ -65,11 +65,11 @@ Above aggregate creations is "required" i.e. it will unconditionally be executed
 Below two examples, one for optional aggregate creation and one for multiple aggregates creation:
 
 ```
-[AccountSystem] NewReceivableRegistered! -> F{InvoiceFactory}[createIfNotAlreadyPresent]#
+NewReceivableRegistered! [AccountSystem] -> F{InvoiceFactory}[createIfNotAlreadyPresent]#
 ```
 
 ```
-[AccountSystem] NewReceivablesRegistered! -> F{InvoiceFactory}[createMissing]+
+NewReceivablesRegistered! [AccountSystem] -> F{InvoiceFactory}[createMissing]+
 ```
 
 ## Aggregate deletion
@@ -93,7 +93,7 @@ In PC, a process may be triggered by an event coming from an external sub-system
 ReceivableOverdue! [AccountingSystem] -> Ru{MarkOverdueRunner}
     @Invoice[markOverdue]:
         :InvoiceMarkedOverdue! -> . [CommunicationSystem]
-            :.
+        :.
 ```
 
 The note after the top event being consumed gives the value of `consumesFromExternal` attribute of `MessageListener` annotation.
@@ -106,7 +106,7 @@ It may happen that, when focusing on a given process, a message is actually hand
 CancelInvoice! -> Ru{CancelRunner}
     @Invoice[cancel]:
         :InvoiceCancelled! -> P{CustomerManagement}
-            :.
+        :.
 ```
 
 In above example, `CustomerManagement` is another process of the domain (i.e. not an external system) which contains at least one listener consuming event `InvoiceCancelled`.
