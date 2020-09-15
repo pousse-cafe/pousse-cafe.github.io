@@ -118,3 +118,10 @@ As EMIL is only an extension of MIL, it is easy to come back on an original MIL 
 - Replace occurrences of `[...]` by an empty string
 - Replace occurrences of `#` by an empty string
 - Replace occurrences of `+` by an empty string
+
+## Grammar
+
+The latest grammar of EMIL is available
+[here](https://github.com/pousse-cafe/pousse-cafe/blob/master/pousse-cafe-source/src/main/antlr4/poussecafe/source/emil/parser/Emil.g4).
+It is written in the form of an ANTLR4 grammar, see [ANTLR documentation](https://github.com/antlr/antlr4/blob/master/doc/index.md)
+to learn the syntax (which is rather similar to [EBNF](https://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_form)).
