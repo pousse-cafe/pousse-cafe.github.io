@@ -125,3 +125,24 @@ The latest grammar of EMIL is available
 [here](https://github.com/pousse-cafe/pousse-cafe/blob/master/pousse-cafe-source/src/main/antlr4/poussecafe/source/emil/parser/Emil.g4).
 It is written in the form of an ANTLR4 grammar, see [ANTLR documentation](https://github.com/antlr/antlr4/blob/master/doc/index.md)
 to learn the syntax (which is rather similar to [EBNF](https://en.wikipedia.org/wiki/Extended_Backus%E2%80%93Naur_form)).
+
+## Back and forth between EMIL and code
+
+Pousse-Café comes with a [Maven plugin](/pousse-cafe-maven-plugin/) which gives access to a set of tools enabling to
+output EMIL based on source code and update existing code based on an EMIL representation of a process.
+
+The most interesting one is provided through the [update-process](/pousse-cafe-maven-plugin/update-process-mojo.html)
+goal. Running this goal in your project opens an editor containing either an empty EMIL process (i.e. only the header
+with no consumption), either the representation of an existing process. You may then update the process. Once done,
+just save your changes and exit the editor, the code will be updated accordingly. If no change was brought to the
+initial content, code generation will be skipped.
+
+Pousse-Café's code generation tool will:
+- Add missing aggregates (root, factory and repository and implementation)
+- Add missing domain events and commands (definition and implementation)
+- Add missing listeners (add method and all required annotations)
+- Update existing listeners (rename method and add required annotations)
+
+However, Pousse-Café's code generation tool will not generate any data model (i.e. attributes) nor actual behavior
+(i.e. listeners body). Comments starting with `TODO` are put where code should be completed.
+Please refer to the [reference guide](/doc/reference-guide/) for details about generated code.

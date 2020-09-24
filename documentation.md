@@ -7,188 +7,180 @@ permalink: /doc/reference-guide/
 ## Table of Content
 
 - [Introduction](#introduction)
-- [Domain-Driven Design in a nutshell](#domain-driven-design-in-a-nutshell)
-- [Purpose](#purpose)
-- [Quick Summary](#quick-summary)
-- [Storage and Messaging](#storage-and-messaging)
-- [Introducing Attributes](#introducing-attributes)
-- [Implement Aggregates](#implement-aggregates)
-- [Implement Services](#implement-services)
-- [Handle Messages](#handle-messages)
-- [Run your Model](#run-your-model)
-- [Test your Model](#test-your-model)
-- [Custom Message Listeners](#custom-message-listeners)
-- [Message Listeners execution order](#message-listeners-execution-order)
-- [Collision Handling](#collision-handling)
-- [More on Attributes](#more-on-attributes)
-- [Configuring Services](#configuring-services)
+- [Implementing domain processes](#implementing-domain-processes)
+- [Definition and implementation](#definition-and-implementation)
+- [Run your model](#run-your-model)
+- [Introducing attributes](#introducing-attributes)
+- [Implement aggregates](#implement-aggregates)
+- [Message listeners](#message-listeners)
+- [Implement messages](#implement-messages)
+- [Implement services](#implement-services)
+- [Test your model](#test-your-model)
+- [Collision handling](#collision-handling)
+- [More on attributes](#more-on-attributes)
+- [Configuring services](#configuring-services)
 - [Generating expert-readable documentation](#generating-expert-readable-documentation)
-- [Spring Integration](#spring-integration)
-- [Storage Plug-ins](#storage-plug-ins)
-- [Messaging Plug-ins](#messaging-plug-ins)
+- [Spring integration](#spring-integration)
+- [Storage plug-ins](#storage-plug-ins)
+- [Messaging plug-ins](#messaging-plug-ins)
 
 
 ## Introduction
 
-The main purpose of Pousse-Café is to provide tools making the development of highly scalable
-[Domain-Driven Design (DDD)](https://en.wikipedia.org/wiki/Domain-driven_design)-based applications easier.
-Pousse-Café also eases and, actually, partially relies on the use of techniques like
-[Command Query Responsibility Segregation (CQRS)](https://www.martinfowler.com/bliki/CQRS.html).
+The purpose of Pousse-Café is to provide a framework enabling to
 
-The next section quickly summarizes DDD, focusing on the elements that Pousse-Café covers,
-in order to introduce the elements required to describe precisely Pousse-Café's purpose. If you already know
-enough on DDD, feel free to skip it.
+- efficiently write Java applications implementing complex business processes or workflows
+- in a scalable way (from maintenance and performance points of view)
+- with pluggable messaging and storage systems.
 
+It comes with a DSL, the [Extended Messaging Intermediate Language (EMIL)](/doc/emil/),
+enabling the simple description of domain processes. EMIL can be used to
+[generate code](/doc/emil/#back-and-forth-between-emil-and-code)
+ serving as a starting point of
+the actual implementation. This accelerates the actual application design. Also, expert-readable documentation can
+be automatically generated from the code, enabling an efficient communication with domain experts
+(e.g. to get quick and precise feedback on the model itself).
 
-## Domain-Driven Design in a nutshell
+The framework applies [Domain-Driven Design (DDD)](https://en.wikipedia.org/wiki/Domain-driven_design)'s 
+concepts and principles to Java in providing an actual interpretation of them. With little effort, this enables
+a scalable implementation.
 
-Domain-Driven Design (DDD) defines (but is not limited to) a set of tools targeting better communication, deeper
-description of concepts, cleaner code and scalable software.
-
-The *Domain Model* is the model of the reality an organization is working in.
-It is described using the terms defined by a common language (the *Ubiquitous Language*) shared by domain
-experts and developers.
-
-When building a software,
-you actually implement the Domain Model. When applying DDD, domain experts and developers work closely to
-build the Domain Model together. The Domain Model and the code evolve simultaneously. DDD defines several design elements:
-
-- An *Entity* is a stateful component that has an identity (i.e. it can be referenced) and a life-cycle (it is created, altered and maybe disposed). For instance, a product sold in an e-shop is initially created, its description updated, out for sell, sold-out and then finally removed.
-- A *Value Object* (VO) is a stateful component without identity which is fully described by its attributes and
-is immutable. For instance, the price of a product or its color.
-- An *Aggregate* is a cluster of associated Entities that is
-  - treated as a unit,
-  - defines strong consistency rules on state changes and
-  - has a *Root Entity* (also called *Aggregate Root*) which is the only Entity of the cluster that can be referenced
-  from outside of the cluster.
-- A *Service* is a stateless component that represents an operation that does not naturally belong to an Entity or a VO.
-For instance, a Service may be responsible for the computation of some statistics by iterating over a set of Aggregates.
-- *Domain Events* are messages produced by an Aggregate when it is updated.
-  - They can then trigger the update of other Aggregates,
-  - they enable the definition of invariants spanning several Aggregates.
-  - No assumption should be made on when a  Domain Event is actually handled, this means that invariants spanning
-  several Aggregates are not always true at all times (by opposition to Aggregate consistency rules which must always be
-  true).
-- *Eventual Consistency* is the fact that, after some time, all invariants, including the ones spanning several
-  Aggregates, are true.
-- A *Factory* is a Service that creates Aggregates in an initially consistent state.
-- A *Repository* is a Service that retrieves, stores, updated and removes Aggregates from a given storage.
-- A *Module* defines a boundary inside of which there is a bijection between domain components and their name.
+Finally, Pousse-Café abstracts messaging and storage systems from model logic (i.e. the domain processes) in a way that 
+enables to replace them without impacting the model code itself. Adding support for a new messaging or storage system boils 
+down to implementing a couple of classes. Changing the storage or messaging system used by an application simply
+consists in loading another implementation into the Pousse-Café runtime.
 
 
-## Purpose
+## Implementing domain processes
 
-Implementing DDD brings a set of technical questions and issues. They are described in this section.
-
-
-### Business and data logic separation
-
-When writing Domain logic, the code must be as exempt as possible of technical elements (in particular, storage and
-messaging related elements). It is easy to end up in a
-situation where storage-related issues are handled by code that is part of the implementation of a Domain component
-(Aggregate, Service, etc). Pousse-Café defines a way of [implementing Aggregates](#implement-aggregates) preventing
-this. In particular:
-  - Domain logic is decoupled from data implementation;
-  - Data implementation relies on [Attributes](#introducing-attributes), reducing the amount of boilerplate code for
-    data conversion.
-
-
-### Transaction handling
-
-Domain Events should be handled by Domain logic but, at the same time, Domain logic cannot be crippled with technical
-details like starting a DB transaction and committing it or rolling it back.
-Pousse-Café [completely hides](#storage-and-messaging) those operations as well as the message consumption logic.
-
-
-### Implementation correctness
-
-Evaluating that a given Domain Model implementation actually fits the Domain Model involves domain experts.
-A GUI or test cases do not always show the full complexity of a given Domain Model.
-At the same time, it is, most of the time, not a viable option to have domain experts directly review the code.
-An approach
-enabled by Pousse-Café is to generate a domain-expert-readable documentation (i.e. a PDF file written in
-natural language) from the code which can be reviewed by domain experts.
-
-
-### Distributed environments
-
-In distributed environments, the same Aggregate may be updated concurrently by several processors. This can be
-detected using [optimistick concurrency control](https://en.wikipedia.org/wiki/Optimistic_concurrency_control).
-
-In that case,  at least one of processors will have to [retry its update](#collision-handling).
-However, by doing this, messages are not 
-necessarily applied in the sequence they have been emitted.
-
-Furthermore, if a processor updates the Aggregate but fails
-to acknowledge the message, the message may be re-submitted by the messaging system and processed again. In that case,
-the update must be skipped.
-
-Pousse-Café provides tools to properly detect and react to this situation.
-
-
-### Technology independence
-
-Pousse-Café relies on the definition of a model which is composed of the Domain components as well as
-Domain Processes. The goal is to define the Domain logic in a way that is as independent as possible of underlying
-technologies and then instantiate it in an actual application by plugging in the required adapters.
-
-
-## Quick Summary
+Below picture illustrates how Pousse-Café actually executes domain processes. It is followed by a textual summary of
+what's represented in it.
 
 <img src="/img/big_picture.svg">
 
-- [Aggregates](#implement-aggregates) and [Services](#implement-services) are grouped in [Modules](#module);
-- A set of Modules is loaded into the [Runtime](#run-your-model);
-- [Commands](#handle-messages) are submitted to the Runtime;
-- Commands are handled by the Aggregates (or their Factory or Repository) using [Message Listeners](#handle-messages);
-- Aggregates issue [Domain Events](#handle-messages) which are also handled by Message Listeners;
-- The set of Message Listeners executed following the submission of a Command defines a [Domain Process](#domain-processes);
-- Domain Events may cross Modules borders enabling cross-module interactions.
+- Pousse-Café provides a [runtime](#run-your-model) which "understands" DDD primitives;
+- [Commands](#message-listeners) are submitted to the runtime;
+- The runtime loads the [aggregates](#implement-aggregates) (or their factory or repository) defining
+  [message listeners](#message-listeners) handling them;
+- Aggregates (actually, their message listeners or [hooks](#aggregate-life-cycle-hooks)) issue
+  [Domain events](#message-listeners) which are in turn handled by other message listeners;
+- Aggregates and [services](#implement-services) are grouped in [Modules](#module);
+- The set of message listeners executed following the submission of a command are part of a
+  [domain process](#domain-processes);
+- Domain events may cross modules borders enabling cross-module interactions.
+
+The easiest way of implementing a domain process is probably to
+- represent it using [EMIL](/doc/emil/),
+- [generate some code](/doc/emil/#back-and-forth-between-emil-and-code) as a starting point and
+- fill-in the gaps.
+
+The purpose of this document is to describe *what* was actually generated and *how* the gaps must be filled.
+
+## Definition and implementation
+
+The pluggable storage and messaging systems feature of Pousse-Café is enabled by separating definition and
+implementation:
+
+- the attributes of an entity are *defined* using an interface,
+- domain events and commands are *defined* using interfaces.
+
+The classes actually *implementing* the interfaces contain the implementation details linked to the storage or messaging
+system (friendly types, annotations, etc.).
+
+Therefore, a model is *defined* by its component and the interfaces representing entity attributes, domain events and
+commands. However, in order to be actually executable by the Pousse-Café runtime, the model must have an
+implementation, it must be *implemented* as well.
 
 
-## Storage and Messaging
+## Run your model
 
-Pousse-Café works with "pluggable" Storage and Messaging systems:
+A module is defined by interfaces or classes extending or implementing `poussecafe.domain.Module`.
+The package of this class or interface defines the module's base package. Any component represented by a class
+in a subpackage of the module's base package is considered as part of the module.
 
-- A Storage tells how to persist [Aggregates](#implement-aggregates) data.
-- A Messaging tells how [Commands and Domain Events](#handle-messages) must be marshaled and transmitted.
+The definitions and implementations of aggregates and services of a given module are grouped in a Bundle.
+A Bundle may include several Modules.
 
-A Storage is linked to each defined Aggregate. A Messaging is linked to each defined Command and Domain Event.
-Different Aggregates may use different Storage systems. This is also true for Commands and Domain Events.
-This feature is useful when migrating from one Storage/Messaging system to another for instance.
+One or several Bundles may be instantiated in a Pousse-Café ``Runtime``. Upon creation, the 
+runtime instantiates all required services and injects them when necessary. It also gives access to 
+aggregates via their repository and factory.
 
-A Storage system may require transaction management. Pousse-Café does this automatically so that the developer should
-almost never have to handle it manually (though [there might be exceptions](#in-an-explicit-domain-process)).
+The preferred way to create a Bundle is to use a ``BundleConfigurer``.
 
-Pousse-Café handles Storage and Messaging as follows:
+Below example illustrates the creation of a BundleConfigurer by automatically loading all domain components and 
+implementations available in a module:
 
-1. In reaction to a Command or a Domain Event, an Aggregate is [updated](#in-an-aggregate-root),
-[created](#in-a-factory) or [deleted](#in-a-repository).
-2. The change is persisted using Storage and, potentially, implying a transaction.
-3. If persistence is successful (i.e. transaction was successfully committed if applicable), then issued Domain Events
-are sent using the Messaging system.
+    public class MyBundle {
+    
+        private MyBundle() {
+    
+        }
+    
+        public static BundleConfigurer configure() {
+            return new BundleConfigurer.Builder()
+                    .module(MyModule.class)
+                    .build();
+        }
+    }
 
-All the above is handled automatically by the Runtime. Developers only have to define
-[Aggregates](#implement-aggregates) and their [Message Listeners](#handle-messages).
+If no module has been defined (i.e. all aggregates are in the default module), `DefaultModule` may be loaded.
+However, this is not recommended because it implies the scanning of **all** classes in the classpath.
 
-Note that Commands are not sent using Messaging. They are inserted directly in an in-memory queue. Therefore,
-Commands do not need to be "serializable".
+The BundleConfigurer uses the following annotations to discover the domain components to load:
 
+- ``@Aggregate``
+- ``@MessageImplementation``
+- ``@DataAccessImplementation``
+- ``@ServiceImplementation``
+- ``@MessageListener``
+
+In addition, sub-classes of the following interfaces/classes are automatically loaded as well:
+
+- ``poussecafe.domain.Service``
+- ``poussecafe.domain.DomainProcess``
+
+The BundleConfigurer is used to instantiate a Bundle and provide it to a runtime which may, finally, be 
+started:
+
+    Bundle bundle = MyBundle.configure()
+        .defineAndImplementDefault()
+        .build();
+    Runtime runtime = new Runtime.Builder()
+        .withBundle(bundle)
+        .build();
+    runtime.start();
+
+``defineAndImplementDefault`` method returns a Bundle builder that will use internal storage and messaging.
+In order to use another storage and messaging, use `defineThenImplement`.
+
+A call to ``Runtime``'s ``start`` method actually starts the consumption of messages by listeners. The call to
+`start` is non blocking.
+
+After that, commands may be submitted to the runtime using `submitCommand` and aggregates retrieved using their 
+repository.
+
+Repositories are automatically injected by the runtime in any registered service. For external services (i.e. non-domain
+services), repositories may be retrieved from ``Runtime``'s ``Environment`` using the following methods:
+
+- ``runtime.environment().repositoryOf(aggregateClass)`` where ``aggregateClass`` is the class of the 
+aggregate root.
+
+A [Spring integration](#spring-integration) exists enabling direct injection of domain component in Spring beans
+and vice versa (up to some extent, see project page).
 
 ## Introducing Attributes
 
-Before describing the actual implementation of an Aggregate, the concept of Attribute must be introduced. It is central
-to the decoupling of domain logic and persistence logic. This decoupling supports the "pluggable storage" feature of
-Pousse-Café because it enables an abstract/domain-level description of the data model by separating it from
-the actual data model used for persistence.
-
-While the above could be achieved without Attributes, their use is recommended in order to simplify code and prevent
+Before describing the actual implementation of an aggregate, the concept of Attribute should be introduced. 
+Attributes are used in order to simplify the definition and implementation of entities, domain events and commands.
+While their use is optional, it is highly recommended in order to simplify code and prevent
 any accidental leak of technical details into domain logic.
 
 An Attribute is an object encapsulating a value with a given type (the Attribute's type) and exposing a getter and
 a setter for this value. It also hides the way the value is actually stored (you may for instance have a BigDecimal
 Attribute actually storing its value in the form of a String). In that case, the implementation of the getter and
-the setter includes conversion logic.
+the setter includes the conversion logic.
+
+Note that Attributes are similar to "properties" in Python and C#.
 
 The purpose of Attributes is
 
@@ -247,7 +239,7 @@ writing of Attribute implementations and preventing the explicit use of anonymou
 In above example, `AttributeBuilder.single` returns an Attribute which expects a non-null value. If the value may be
 null, use `AttributeBuilder.optional` and make this explicit in your interface by exposing an
 `OptionalAttribute<T>` (which extends `Attribute<Optional<T>>`, note however that using `OptionalAttribute` is
-important as it enables some validity checks to be performed automatically by the Runtime when testing your code
+important as it enables some validity checks to be performed automatically by the runtime when testing your code
 or when explicitly enabling the checks).
 
 Let's now imagine that we need to persist instances of `Example`. Let's also imagine that the persistence tool
@@ -284,30 +276,27 @@ of this section.
 More information regarding Attributes can be found in [this section](#more-on-attributes).
 
 
-## Implement Aggregates
+## Implement aggregates
 
-The central element in Pousse-Café is the Aggregate and its related Services (i.e. the Factory and the Repository).
+The central element in Pousse-Café is the aggregate and its related services (i.e. the factory and the repository).
 
 
-### Aggregate Root
+### Aggregate root
 
-The Aggregate Root is implemented by a class extending `AggregateRoot<K, D>` where
+The aggregate root is implemented by a class extending `AggregateRoot<K, D>` where
 
 - `K` is the type representing the identifier that
-can be used to reference the Aggregate and
-- `D` is the type representing the data related to the Aggregate.
+can be used to reference the aggregate and
+- `D` is the type representing the data related to the aggregate.
 
-`D` must implement the interface `EntityAttributes<K>` which defines an attribute for Aggregate's ID.
+`D` must implement the interface `EntityAttributes<K>` which defines an attribute for aggregate's ID.
 
-It is recommended to defined ``D`` as a static inner-class of the class defining the Aggregate Root. Indeed, Domain
+`D` is the definition of aggregate root's attributes.
+
+It is recommended to defined ``D`` as a static inner-class of the class defining the aggregate root. Indeed, domain
 logic and data model are strongly linked.
 
-Pousse-Café decouples Domain logic and data implementation. This way, an Entity's implementation
-is not crippled by technical details about how data have to be defined or annotated to fit the underlying storage technology.
-
-Below example describes a Product Aggregate giving
-the possibility to place an Order i.e. remove a number of units from the number of available units. If there are enough
-units available, the `OrderPlaced` Event is issued. Otherwise, the `OrderRejected` Event is issued.
+Below example describes a Product aggregate root which has a single `availableUnits` attribute.
 
     @Aggregate(
         factory = ProductFactory.class,
@@ -317,27 +306,6 @@ units available, the `OrderPlaced` Event is issued. Otherwise, the `OrderRejecte
     public class Product extends AggregateRoot<ProductId, Product.Attributes> {
         ...
     
-        @MessageListener(runner = PlaceOrderRunner.class, processes = OrderPlacement.class)
-        @ProducesEvent(value = OrderRejected.class, required = false)
-        @ProducesEvent(value = OrderPlaced.class, required = false)
-        public void placeOrder(PlaceOrder command) {
-            int unitsAvailable = attributes().availableUnits().value();
-            OrderDescription description = command.description().value();
-            if (description.units() > unitsAvailable) {
-                OrderRejected event = newDomainEvent(OrderRejected.class);
-                event.productId().valueOf(attributes().identifier());
-                event.description().value(description);
-                issue(event);
-            } else {
-                attributes().availableUnits().value(unitsAvailable - description.units());
-    
-                OrderPlaced event = newDomainEvent(OrderPlaced.class);
-                event.productId().valueOf(attributes().identifier());
-                event.description().value(description);
-                issue(event);
-            }
-        }
-    
         public static interface Attributes extends EntityAttributes<ProductId> {
             ...
     
@@ -345,32 +313,18 @@ units available, the `OrderPlaced` Event is issued. Otherwise, the `OrderRejecte
         }
     }
 
-The ``@Aggregate`` annotation explicitly links the Root to the Aggregate's Factory and Repository.
-It is required by [Pousse-Café's Runtime](#run-your-model) in order to detect it. `@Aggregate`'s `module` annotation
-links the Aggregate to a
-given Domain Module. A Module is defined by an interface or a class extending or implementing the 
-`poussecafe.domain.Module` interface. The `module` attribute is optional, by default an Aggregate is put in the
-default Module.
+The ``@Aggregate`` annotation explicitly links the root entity with the aggregate's factory and repository.
+It is required by [Pousse-Café's runtime](#run-your-model) in order to detect it.
+`@Aggregate`'s `module` annotation links the aggregate to a given domain module.
+The `module` attribute is optional, by default an aggregate is put in the default module.
 
-All Aggregates (and other components like Value Objects, Entities, Services and Domain Processes) in the Module must be
-defined in sub-packages of the Module definition class (i.e. if a Module class is
-in package `x.y.z`, then Aggregate classes must be in package `x.y.z` or in a sub-package). The default Module is
-attached to the default Java package.
-
-`@MessageListener` and `@ProducesEvent` annotate a Message Listener i.e. a method which handles
-a given Command or Domain Event (see [below](#handle-messages) for an extended explanation on this).
-
-Aggregate Root's ``newDomainEvent`` method returns a new instance of Domain Event implementation.
-
-Aggregate Root's ``issue`` method queues the Domain Event for issuance after the Aggregate is successfully persisted.
-
-The ``Product.Attributes`` interface defines the data model of an Entity (and in particular, the Aggregate Root).
+The ``Product.Attributes`` interface defines the data model of an entity (and in particular, the aggregate root).
 Each attribute is defined by a method
 returning an instance of ``Attribute<V>`` where ``V`` is the type of the attribute.
 
-The type of the value of an Attribute may be a primitive type, a Value Object (i.e. a class extending `ValueObject`)
-or a collection aforementioned types. Regular POJOs may be used as well but the Attributes of an Entity should be as
-much as possible expressed in terms of Domain terms in order to prevent any leak of non-domain elements.
+The type of the value of an Attribute may be a primitive type, a value object (i.e. a class extending `ValueObject`)
+or a collection of aforementioned types. Regular POJOs may be used as well but the Attributes of an entity should be as
+much as possible expressed in terms of domain terms in order to prevent any leak of non-domain elements.
 
 Below example illustrates an implementation of ``Product.Attributes`` interface.
 
@@ -406,8 +360,416 @@ the data (annotations, etc.).
 
 Pousse-Café's internal storage's purpose is testing, it should not be used by production code.
 
-Domain Events are defined by interfaces extending the `DomainEvent` interface. The following example shows 
-the definition of the `OrderPlaced` Event.
+### Aggregate life-cycle hooks
+
+There are 3 life-cycle hooks:
+
+- `onAdd`
+- `onUpdate`
+- `onDelete`
+
+The hooks are methods of `AggregageRoot` which may be overridden in order to modify the state of the aggregate
+or issue one or several domain events (see [there](#in-an-aggregate-root)).
+
+### Factory
+
+In order to create aggregates, a factory is needed. A factory extends the `poussecafe.domain.Factory<K, A, D>`
+class where
+
+- `K` is the type of the aggregate's ID,
+- `A` is the aggregate's type and
+- `D` the type of aggregate's attributes definition.
+
+The following example shows a
+factory for the Product aggregate. It illustrates the creation of a Product with initially no available units given its
+ID.
+
+    public class ProductFactory extends Factory<ProductId, Product, Product.Data> {
+    
+        public Product buildProductWithNoStock(ProductId productId) {
+            Product product = newAggregateWithId(productId);
+            product.attributes().availableUnits().value(0);
+            ...
+            return product;
+        }
+    }
+
+Note that while it is possible to create directly an aggregate using a factory and manually persist it, the preferred 
+approach is to define a message listener and let the runtime [create and persist the new aggregate](#in-a-factory).
+
+
+### Repository
+
+Finally, aggregates need to be saved, updated or removed from storage. That's the purpose of the repository which is
+implemented by extending the `Repository<A, K, D>` class where
+
+- `A` is the aggregate's type,
+- `K` is the type of the aggregate's ID and
+- `D` the type of aggregate's attributes definition.
+
+Repository's role is to
+
+- wrap the data extracted from storage with aggregate roots when reading,
+- unwrap the data to store into storage from aggregate roots when writing.
+
+In order to do that, a repository uses an ``EntityDataAccess<K, D>`` where
+
+- `K` is the type of the aggregate's ID and
+- `D` the type of aggregate's attributes.
+
+The actual implementation of ``EntityDataAccess<K, D>`` is dependent on the storage and has to be defined
+when [configuring the Bundle](#run-your-model).
+
+The `Repository` class defines the following default operations:
+
+    A find(K id);
+    A get(K id);
+    void add(A aggregate);
+    void update(A aggregate);
+    void delete(K id);
+    boolean existsById(K id);
+
+where
+
+- `find` returns an aggregate of null if none was found,
+- `get` returns an aggregate or throws an exception if the aggregate was not found,
+- `add` allows to add a new aggregate,
+- `update` updates an existing aggregate,
+- `delete` removes an aggregate from storage if it was present,
+- `existsById` returns true if an aggregate is present in storage for given identifier, false otherwise.
+
+The following example shows a repository for the Product aggregate.
+
+    public class ProductRepository extends Repository<Product, ProductId, Product.Attributes> {
+    
+        public List<Product> findByAvailableUnits(int availableUnits) {
+            return wrap(dataAccess().findByAvailableUnits(availableUnits));
+        }
+    
+        @Override
+        public ProductDataAccess<Product.Attributes> dataAccess() {
+            return (ProductDataAccess<Product.Attributes>) super.dataAccess();
+        }
+    }
+
+In above example, the additional query method ``findByAvailableUnits`` is defined. When additional query methods
+are expected, a specific data access interface can be defined i.e. an interface extending
+``EntityDataAccess``:
+
+    public interface ProductDataAccess<D extends EntityAttributes> extends EntityDataAccess<ProductId, D> {
+    
+        List<D> findByAvailableUnits(int availableUnits);
+    }
+
+The data access implementation defined for the repository must implement the interface. This implementation is
+an adapter for storage access.
+
+Below an example of implementation:
+
+    @DataAccessImplementation(
+        aggregateRoot = Product.class,
+        dataImplementation = ProductData.class,
+        storageName = InternalStorage.NAME
+    )
+    public class ProductDataAccess extends InternalDataAccess<ProductId, ProductData> implements ProductDataAccess<ProductData> {
+    
+        public List<ProductData> findByAvailableUnits(int availableUnits) {
+            return findAll().stream()
+                .filter(data -> data.availableUnits().value() == availableUnits)
+                .collect(toList());
+        }
+    }
+
+``@DataAccessImplementation`` annotation links attributes and data access implementations with ``Product``
+aggregate. ``storageName`` attribute is used when [instantiating a Pousse-Café runtime](#run-your-model).
+Implementations not matching the chosen storage are ignored.
+
+
+## Message listeners
+
+There are 2 types of messages in Pousse-Café: domain events and commands. In DDD, one of the purposes of domain events
+is eventual consistency. Commands represent inputs from users or external systems.
+
+Messages are directly handled by domain components i.e. aggregate roots, factories or repositories.
+
+The ``@MessageListener`` annotation is used to annotate a method that should handle a message. Such a method is called
+a message listener. The annotation has 2 attributes that can be used in all situations:
+- `processes` linking the listener to a set of processes (represented by an interface or class (extending or
+  implementing `poussecafe.domain.Process`),
+- `consumesFromExternal` names the external components or modules producing consumed message.
+
+Both attributes are optional. By default, a message listener is linked to the default domain process 
+(`poussecafe.discovery.DefaultProcess`) and consumes from no external component.
+
+This information in above attributes is not used by the runtime. However, it enables:
+
+- embedded documentation for developers, putting a given message listener in a context for the developer reading the code;
+- the [generation of expert-readable documentation](#generating-expert-readable-documentation).
+
+Message listener methods may also be annotated with `@ProducesEvent`. This annotation has 3 attributes:
+
+- `value` is the produced domain event by mentioning the domain event definition interface,
+- `required` tells if the issuance is required or not,
+- `consumedByExternal` gives a list of external components consuming produced event.
+
+Putting this annotation on the listener enables a check by the runtime that expected events are actually issued.
+If it is not the case, the execution of the listener fails and an exception may be thrown in order to enable the
+early detection of the issue. This is particularly interesting when [testing the model](#test-your-model).
+
+It is also used to [generate model's expert-readable documentation](#generating-expert-readable-documentation).
+
+### In a Factory
+
+Factory message listeners are used to create aggregates when handling a domain event. There cannot be several listeners
+per factory consuming the same message.
+
+Below example illustrates listeners in a factory:
+
+    public class MyAggregateFactory extends Factory<...> {
+    
+        @MessageListener
+        public MyAggregate createMyAggregate(Event1 event) {
+            ...
+        }
+    
+        @MessageListener
+        public Optional<MyAggregate> optionallyCreateMyAggregate(Event2 event) {
+            ...
+        }
+    
+        @MessageListener
+        public List<MyAggregate> createMyAggregates(Event3 event) {
+            ...
+        }
+    }
+
+``createMyAggregate`` creates an aggregate each time an event ``Event1`` is consumed.
+
+``optionallyCreateMyAggregate`` creates conditionally an aggregate when an event ``Event2`` is consumed. When
+``Optional.empty()`` is returned, no aggregate is created.
+
+``createMyAggregates`` creates zero, one or several aggregates each time an event ``Event3`` is consumed.
+
+When new aggregates are created, Pousse-Café automatically starts a transaction and commits it if the storage requires
+it when persisting the newly created aggregates. The creation itself i.e. the execution of the message listener
+happens outside of the transaction (actually, before it).
+
+The following algorithm describes how transactions are handled upon aggregate creation:
+
+    while("all create listeners not executed") {
+        "Execute create listener"; // Listener
+        while("all created aggregates not persisted") {
+            "Start transaction";
+            "Add aggregate";
+            "End transaction";
+        }
+    }
+
+
+### In an aggregate root
+
+Aggregate root message listeners are used to update aggregates when handling a domain event. Unlike factory listeners,
+aggregate root listeners do not return a value, they only have side effects. There can not be several listeners per 
+aggregate consuming the same message.
+
+Below example describes a Product aggregate giving
+the possibility to place an Order. The `OrderPlaced` event is issued if the order can be placed successfully.
+
+    public class Product extends AggregateRoot<...> {
+        ...
+    
+        @MessageListener(runner = PlaceOrderRunner.class, processes = OrderPlacement.class)
+        @ProducesEvent(value = OrderRejected.class, required = false)
+        @ProducesEvent(value = OrderPlaced.class, required = false)
+        public void placeOrder(PlaceOrder command) {
+            // Update aggregate state
+    
+            OrderPlaced event = newDomainEvent(OrderPlaced.class);
+            // populate attributes of event
+            issue(event);
+        }
+    
+        ...
+    }
+
+The identity of the aggregates to update needs to be extracted from the message. Therefore, message listeners defined in
+aggregate roots require a [runner](#runners) i.e. an instance of ``AggregateMessageListenerRunner<M, K, A>`` where
+
+- ``M`` is the class of the consumed event,
+- ``K`` is the class of aggregate's identifier (or any secondary identifier),
+- ``A`` is the aggregate root's class.
+
+Aggregate root's ``newDomainEvent`` method returns a new instance of [event implementation](#implement-messages).
+Aggregate root's ``issue`` method queues the event for issuance after the aggregate update is successfully persisted.
+Both methods may also be used within [hooks](#aggregate-life-cycle-hooks).
+
+Below algorithm illustrates how an aggregate root listener and its runner are executed and how transactions are handled.
+
+    "Compute aggregate identifiers to update"; // Runner
+    while("all identifiers are not handled") {
+        "Start transaction";
+        "Fetch aggregate to update";
+        if("message is expected") { // Runner
+            "Execute update listener"; // Listener
+            "Update aggregate;"
+        }
+        "End transaction";
+    }
+
+### Runners
+
+The `runner` attribute of `MessageListener` enables to link a listener to its runner. This is only necessary for
+aggregate root listeners.
+
+A ``AggregateMessageListenerRunner`` is defined as follows:
+
+    public interface AggregateMessageListenerRunner<M, K, A> {
+    
+        TargetAggregates<K> targetAggregates(M message);
+    
+        default Object context(M message, A aggregate) { return null; }
+    
+        default void validChronologyOrElseThrow(M message, A aggregate) {}
+    }
+
+``targetAggregates`` defines the IDs of the aggregates to update given an event. It also allows to define the
+IDs of the aggregates whose creation is expected because they cannot be updated (see section about
+[collision handling](#collision-handling)).
+
+``context`` returns the data required to execute the update i.e. information coming potentially from other
+aggregates or external configuration. The use of an update context is not recommended but may be required in some
+cases. By default, no context is returned (i.e. `context` returns null).
+
+`validChronologyOrElseThrow` checks if, based on an aggregate's state, the message is expected or not. This method
+must throw one of the following exceptions if the message listener must not be executed and the aggregate must not
+be updated:
+
+- `SameOperationException` tells that the execution of the message listener must be skipped (e.g. because inspection
+ of `aggregate`'s state tells that the message has already been handled),
+- `RetryOperationException` tells that the execution of the message listener must be postponed (e.g. messages are 
+expected in sequence and a gap was detected),
+- `IllegalArgumentException` tells that given message is unexpected, an error is reported and listener execution
+  skipped.
+
+The exceptions listed above may be thrown by the message listener itself. However, this causes the business
+logic inside of the listener to be crippled by technical concerns.
+
+In order to accelerate the writing of runners, helpers exist for common situations:
+
+- `UpdateSeveralRunner`: update target aggregates (they must exist)
+- `UpdateOneRunner`: always update the target aggregate (target aggregate must exist)
+- `UpdateOneOrNoneRunner`: update a target aggregate or none depending on a given condition
+- `UpdateIfExistsRunner`: update each target aggregate if it exists
+- `UpdateOneIfExistsRunner`: update the target aggregate if it exists
+- `UpdateOrCreateRunner`: update the target aggregates or expect the creation if them if they do not exist (a factory 
+listener must handle this)
+- `UpdateOrCreateOneRunner`: update the target aggregate or expect its creation if it does not exist (a factory
+listener must handle this)
+
+### In a Repository
+
+Repository message listeners are used to remove aggregates from storage. There cannot be several listeners per repository 
+consuming the same message.
+
+Below example illustrates a listener in a repository:
+
+    public class MyAggregateRepository extends Repository<...> {
+    
+        @MessageListener
+        public void deleteAggregate(Event3 event) {
+            // Delete the aggregate
+        }
+    }
+
+Below algorithm summarizes how a repository listener is executed and how transactions are handled.
+
+    while("all delete listeners not executed") {
+        "Start transaction";
+        "Execute delete listener"; // Listener
+        "End transaction";
+    }
+
+### In an Explicit domain process
+
+Sometimes, defining message listeners at factory, aggregate root and repository level is not enough because it does not
+enable the definition of more complex handling patterns. This is the purpose of *Explicit domain processes*.
+
+An Explicit domain process is a non-domain service which contains message listeners.
+It is defined by a class extending ``poussecafe.process.DomainProcess``.
+An Explicit  domain process routes domain events or commands to an actual aggregate root, factory or repository,
+potentially by first applying some custom processing.
+
+Below example shows a very simple example of Explicit domain process.
+
+    public class MyDomainProcess extends DomainProcess {
+    
+        @MessageListener
+        public void doSomething(Event4 event) {
+            runInTransaction(MyAggregate.class, () -> {
+                MyAggregate aggregate = repository.get(event.id().value());
+                aggregate.handle(event);
+                repository.update(aggregate);
+            });
+        }
+    
+        private MyAggregateRepository repository;
+    }
+
+The `runInTransaction` method runs the provided `Runnable` in the context of a transaction.
+
+Note that above example is equivalent to defining the message listener in `MyAggregate` class and defining a runner
+than returns a single ID equal to ``event.id().value()``.
+
+In order to keep the code base as small and simple as possible, it is recommended to use explicit domain 
+processes as a last resort. In other words, put as many message listeners in factories, aggregate roots and
+repositories as possible. Explicit domain processes are kept for the very rare cases where this approach is not
+possible.
+
+### Custom message listeners
+
+In some circumstances, for instance when you want to react to a domain event in a component that is not managed by
+Pousse-Café's runtime (e.g. a Spring Bean), you may define
+custom message listeners. Custom message listeners are defined in the same way as factory, repository and domain process
+listeners (i.e. using the `@MessageListener` annotation). The only difference is that you have to register them 
+explicitly.
+
+This is done by using `runtime`'s `registerListenersOf` method:
+
+    runtime.registerListenersOf(service)
+
+where `service` is the instance of the service containing the listeners.
+
+
+### Message listeners execution order
+
+No assumption should be made on the order in which message listeners will be executed when handling a given message.
+However, there are priority rules given the type of listener.
+Below list shows the order in which listener types are executed:
+
+1. Repository listeners
+2. Aggregate listeners
+3. Factory listeners
+4. Domain process listeners
+5. Custom listeners
+
+So for example, if listeners of all types consume a message `M`, it will first be handled by listeners defined in 
+repositories, then in listeners defined in aggregates, etc.
+
+If several listeners are defined per type (e.g. repository listeners), the order in which they are executed is 
+undefined.
+
+There are several goals behind above priority rule:
+
+- Define "update only" listeners in aggregates i.e. listeners that will not be executed on aggregates that were
+previously created while handling the same message;
+- Re-create an aggregate by removing it using a repository, then re-adding it with a factory;
+- Prevent the removal by a repository of an aggregate previously created by a factory while handling the same message.
+
+
+## Implement messages
+
+Messages are defined by interfaces extending the `DomainEvent` or `Command` interface. The following example shows 
+the definition of the `OrderPlaced` event.
 
     public interface OrderPlaced extends DomainEvent {
     
@@ -415,10 +777,6 @@ the definition of the `OrderPlaced` Event.
     
         Attribute<OrderId> orderId();
     }
-
-The data model of Domain Events is also defined using attributes. Decoupling
-Domain Event's data model from the actual implementation allows to plug different implementations for different
-messaging technologies without impacting domain logic.
 
 Below example illustrates an implementation of ``OrderPlaced`` interface:
 
@@ -450,175 +808,22 @@ Below example illustrates an implementation of ``OrderPlaced`` interface:
 
 ``@MessageImplementation`` annotation links the data implementation to a given event. It is used
 [when instantiating a Bundle](#run-your-model). Above implementation is serializable which makes
-it suitable for Pousse-Café's internal messaging (``InternalMessaging``). This messaging's purpose is testing, it should not be used by production code.
+it suitable for Pousse-Café's internal messaging (``InternalMessaging``). This messaging's purpose is testing,
+it should not be used in production.
 
-Note that in above example, field names match Attribute names. This enables the Runtime to check a message's
+Note that in above example, field names match Attribute names. This enables the runtime to check a message's
 validity i.e. the fact that an `Attribute<T>` attribute has been set. Using an `OptionalAttribute<T>` type tells
-the Runtime that associated field may remain unset i.e. equal to `null`. Message validity check is an option of the 
-Runtime and is disabled by default but enabled [when running tests](#test-your-model). It can be enabled or disabled by
-using `messageValidation(boolean)` method of `RuntimeBuilder` (see [how to create a Runtime](#run-your-model)).
+the runtime that associated field may remain unset i.e. equal to `null`. Message validity check is an option of the 
+runtime and is disabled by default but enabled [when running tests](#test-your-model). It can be enabled or disabled by
+using `messageValidation(boolean)` method of `RuntimeBuilder` (see [how to create a runtime](#run-your-model)).
 
+## Implement services
 
-### Aggregate life-cycle hooks
+A service is defined by a Java class extending class ``Service`` with only the default constructor or an explicit
+constructor taking no argument.
 
-An Aggregate is modified by 3 operation types:
-
-- Creation
-- Update
-- Deletion
-
-An Aggregate Root may react to those operations by updating its attributes and/or issuing Domain Events. In order to do so,
-the following methods may be overridden:
-
-- `onAdd`
-- `onUpdate`
-- `onDelete`
-
-Below example illustrates the emission of a Domain Event upon creation of a new `Product` aggregate:
-
-    @Aggregate(
-        factory = ProductFactory.class,
-        repository = ProductRepository.class,
-        module = Shop.class
-    )
-    public class Product extends AggregateRoot<ProductId, Product.Attributes> {
-        
-        @Override
-        public void onAdd() {
-            ProductCreated event = newDomainEvent(ProductCreated.class);
-            event.productId().valueOf(attributes().identifier());
-            issue(event);
-        }
-        
-        ...
-    }
-
-
-### Factory
-
-In order to create Aggregates, a Factory is needed. A Factory extends the `Factory<K, A, D>` class where `K` is the type of the Aggregate's ID, `A` is the Aggregate's type and `D` the type of Aggregate's data.
-
-The following example shows a
-Factory for the Product Aggregate. It allows the creation of a Product with initially no available units given its ID.
-
-    public class ProductFactory extends Factory<ProductId, Product, Product.Data> {
-    
-        public Product buildProductWithNoStock(ProductId productId) {
-            Product product = newAggregateWithId(productId);
-            product.attributes().availableUnits().value(0);
-            ...
-            return product;
-        }
-    }
-
-Note that while it is possible to create directly an Aggregate using a Factory and manually persist it, the preferred 
-approach is to define a Message Listener and let the Runtime [create and persist the new Aggregate](#in-a-factory).
-
-
-### Repository
-
-Finally, Aggregates need to be saved, updated or removed from storage. That's the purpose of the Repository which is
-implemented by extending the `Repository<A, K, D>` class where
-
-- `A` is the Aggregate's type,
-- `K` is the type of the Aggregate's ID and
-- `D` the type of Aggregate's attributes.
-
-Repository's role is to
-
-- wrap the data extracted from storage with Aggregate Roots when reading,
-- unwrap the data to store into storage from Aggregate Roots when writing.
-
-In order to do that, a Repository uses an instance of interface ``EntityDataAccess<K, D>`` where
-
-- `K` is the type of the Aggregate's ID and
-- `D` the type of Aggregate's attributes.
-
-The actual implementation of ``EntityDataAccess<K, D>`` is dependent on the storage and has to be defined
-when [configuring the Bundle](#run-your-model).
-
-The Repository class defines the following default operations:
-
-    A find(K id);
-    A get(K id);
-    void add(A aggregate);
-    void update(A aggregate);
-    void delete(K id);
-    boolean existsById(K id);
-
-where
-
-- `find` returns an Aggregate of null if none was found,
-- `get` returns an Aggregate or throws an exception if the Aggregate was not found,
-- `add` allows to add a new Aggregate,
-- `update` updates an existing aggregate,
-- `delete` removes an Aggregate from storage if it was present,
-- `existsById` returns true if an Aggregate is present in storage for given identifier, false otherwise.
-
-The following example shows a Repository for the Product Aggregate.
-
-    public class ProductRepository extends Repository<Product, ProductId, Product.Attributes> {
-    
-        public List<Product> findByAvailableUnits(int availableUnits) {
-            return wrap(dataAccess().findByAvailableUnits(availableUnits));
-        }
-    
-        @Override
-        public ProductDataAccess<Product.Attributes> dataAccess() {
-            return (ProductDataAccess<Product.Attributes>) super.dataAccess();
-        }
-    }
-
-In above example, the additional query method ``findByAvailableUnits`` is defined. When additional query methods
-are expected, a specific data access interface can be defined i.e. an interface extending
-``EntityDataAccess``:
-
-    public interface ProductDataAccess<D extends EntityAttributes> extends EntityDataAccess<ProductId, D> {
-    
-        List<D> findByAvailableUnits(int availableUnits);
-    }
-
-The data access implementation defined for the Repository must implement the interface. This implementation is
-an adapter for storage access.
-
-Below an example of implementation:
-
-    @DataAccessImplementation(
-        aggregateRoot = Product.class,
-        dataImplementation = ProductData.class,
-        storageName = InternalStorage.NAME
-    )
-    public class ProductDataAccess extends InternalDataAccess<ProductId, ProductData> implements ProductDataAccess<ProductData> {
-    
-        public List<ProductData> findByAvailableUnits(int availableUnits) {
-            return findAll().stream()
-                .filter(data -> data.availableUnits().value() == availableUnits)
-                .collect(toList());
-        }
-    }
-
-``@DataAccessImplementation`` annotation links attributes and data access implementations with ``Product``
-aggregate. ``storageName`` attribute is used when [instantiating a Pousse-Café Runtime](#run-your-model).
-Implementations not matching the chosen storage are ignored.
-
-
-### Quick Creation of Aggregates
-
-The addition of a single new Aggregate to a Model requires the writing of several classes (at least the Aggregate Root,
-the Factory, the Repository and the Data Access). In order to accelerate this
-process, Pousse-Café's [Maven plugin](/pousse-cafe-maven-plugin/plugin-info.html) provides the `add-aggregate` goal
-which creates all required classes as well as adapters for a [specific storage plug-in](#storage-plug-ins) if needed.
-
-The new Aggregate is initially created without any attribute but the (required) identifier attribute.
-See [the documentation of add-aggregate](/pousse-cafe-maven-plugin/add-aggregate-mojo.html) for more details.
-
-
-## Implement Services
-
-A Service is defined by a Java class extending class ``Service`` with only the default constructor or an explicit constructor taking no argument.
-
-A Service might depend on other Domain Services. Pousse-Café
-provides a minimal dependency injection feature for the injection of Domain Services (including Repositories and Factories).
+A service might depend on other domain services. Pousse-Café
+provides a minimal dependency injection feature for the injection of domain services (including repositories and factories).
 
 Below example illustrates the definition of a service:
 
@@ -632,333 +837,27 @@ Below example illustrates the definition of a service:
     }
 
 When instantiating `Service1`, Pousse-Café will inject the instance of `Service2` at runtime (`Service2` being a
-Service as well).
+service as well).
 
-In some cases, a Service may be abstract because technical details need to be hidden in a specific implementation.
+In some cases, a service may be abstract because technical details need to be hidden in a specific implementation.
 The `@ServiceImplementation` annotation can then be used to annotate the actual implementation and link it to
 the abstract service using attribute `service`.
-
-
-## Handle Messages
-
-There are 2 types of messages in Pousse-Café: Domain Events and Commands. In DDD, one of the purposes of Domain Events
-is eventual consistency. Commands represent inputs from users or external systems.
-
-Messages may directly be handled by Domain components i.e. Aggregate Roots, Factories or Repositories.
-
-The ``@MessageListener`` annotation is used to annotate a method that should handle a Domain Event.
-
-A Message Listener may be part of one or several Domain Processes. `@MessageListener`'s `processes` attribute
-enables the linking of a Message Listener with a set of interfaces or classes (extending or implementing
-`poussecafe.domain.Process`), each describing a Domain Process.
-This attribute is optional. By default, a Message Listener is linked to the default Domain Process.
-
-Note that this information is currently not used at runtime. However, it enables:
-
-- embedded documentation for developers, putting a given Message Listener in a context for the developer reading the code;
-- the [generation of expert-readable documentation](#generating-expert-readable-documentation).
-
-
-### In a Factory
-
-Factory message listeners are used to create Aggregates when handling a Domain Event.
-
-Below example illustrates listeners in a Factory:
-
-    public class MyAggregateFactory extends Factory<...> {
-    
-        @MessageListener(processes = Process1.class)
-        public MyAggregate createMyAggregate(Event1 event) {
-            ...
-        }
-    
-        @MessageListener(processes = Process2.class)
-        public Optional<MyAggregate> optionallyCreateMyAggregate(Event2 event) {
-            ...
-        }
-    
-        @MessageListener
-        public List<MyAggregate> createMyAggregates(Event3 event) {
-            ...
-        }
-    }
-
-``createMyAggregate`` creates an Aggregate each time an event ``Event1`` is consumed.
-
-``optionallyCreateMyAggregate`` creates conditionally an Aggregate when an event ``Event2`` is consumed. When
-``Optional.empty()`` is returned, no Aggregate is created.
-
-``createMyAggregates`` creates zero, one or several Aggregates each time an event ``Event3`` is consumed.
-
-When new Aggregates are created, Pousse-Café automatically starts a transaction and commits it if the storage requires
-it when persisting the newly created Aggregates. The creation itself i.e. the execution of the message listener
-happens outside of the transaction (actually, before it).
-
-    while("all create listeners not executed") {
-        "Execute create listener"; // Code actually written
-        while("all created aggregates not persisted") {
-            "Start transaction";
-            "Add aggregate";
-            "End transaction";
-        }
-    }
-
-Note that there cannot be several listeners per Factory consuming the same message.
-
-
-### In an Aggregate Root
-
-Aggregate Root message listeners are used to update Aggregates when handling a Domain Event.
-
-Below example illustrates a listener in an Aggregate Root:
-
-    public class MyAggregate extends AggregateRoot<MyAggregateId, MyAggregate.Attributes> {
-    
-        @MessageListener(runner = UpdateAggregateRunner.class)
-        public void updateAggregate(Event2 event) {
-            ...
-        }
-    
-        ...
-    }
-
-``updateAggregate`` updates the Aggregate in function of consumed ``Event1``. Pousse-Café automatically starts a transaction and commits it if the storage requires it. The message listener is executed inside of the transaction.
-
-The identity of the Aggregates to update needs to be extracted from the event. Therefore, message listeners defined in
-Aggregate Roots require a ``AggregateMessageListenerRunner<M, K, A>`` where
-
-- ``M`` is the class of the consumed event,
-- ``K`` is the class of Aggregate's identifier,
-- ``A`` is the Aggregate Root's class.
-
-A ``AggregateMessageListenerRunner`` is defined as follows:
-
-    public interface AggregateMessageListenerRunner<M, K, A> {
-    
-        TargetAggregates<K> targetAggregates(M message);
-    
-        default Object context(M message, A aggregate) { return null; }
-    
-        default void validChronologyOrElseThrow(M message, A aggregate) {}
-    }
-
-``targetAggregates`` defines the IDs of the Aggregates to update given an event. It also allows to define the
-IDs of the Aggregates whose creation is expected because they cannot be updated (see section about
-[collision handling](#collision-handling)).
-
-``context`` returns the data required to execute the update i.e. information coming potentially from other
-Aggregates or external configuration. The use of an update context is not recommended but may be required in some
-cases. By default, no context is returned (i.e. `context` returns null).
-
-`validChronologyOrElseThrow` checks if, based on an Aggregate's state, the message is expected or not. This method
-must throw one of the following exceptions if the Message Listener must not be executed and the Aggregate must not
-be updated:
-
-- `SameOperationException` tells that the execution of the Message Listener must be skipped (e.g. because inspection of 
-`aggregate`'s state tells that the message has already been handled),
-- `RetryOperationException` tells that the execution of the Message Listener must be postponed (e.g. messages are 
-expected in sequence and a gap was detected),
-- `IllegalArgumentException` tells that given message is unexpected, an error is reported and listener execution
-  skipped.
-
-Note that the exceptions listed above may be thrown by the Message Listener itself. However, this causes the business
-logic inside of the listener to be crippled by technical concerns.
-
-Below example illustrates the runner for the listener in above example:
-
-    public class UpdateAggregateRunner implements AggregateMessageListenerRunner<Event2, MyAggregateId , MyAggregate> {
-    
-        public TargetAggregates<MyAggregateId> targetAggregates(Event2 message) {
-            return new TargetAggregates.Builder<MyAggregateId>().toUpdate(message.id().value()).build();
-        }
-    }
-
-Note that there cannot be several listeners per Aggregate consuming the same message.
-
-In order to accelerate the writing of runners, helpers exist for common situations:
-
-- `UpdateSeveralRunner`: update target aggregates (they must exist)
-- `UpdateOneRunner`: always update the target aggregate (target aggregate must exist)
-- `UpdateOneOrNoneRunner`: update a target aggregate or none depending on a given condition
-- `UpdateIfExistsRunner`: update each target aggregate if it exists
-- `UpdateOneIfExistsRunner`: update the target aggregate if it exists
-- `UpdateOrCreateRunner`: update the target aggregates or expect the creation if them if they do not exist (a factory 
-listener must handle this)
-- `UpdateOrCreateOneRunner`: update the target aggregate or expect its creation if it does not exist (a factory
-listener must handle this)
-
-Below algorithm summarizes how an aggregate root listener and its runner are executed and how transactions are handled.
-
-    "Compute aggregate identifiers to update"; // Runner code
-    while("all identifiers are not handled") {
-        "Start transaction";
-        "Fetch aggregate to update";
-        "Execute update listener"; // Listener code
-        "Update aggregate;"
-        "End transaction";
-    }
-
-### In a Repository
-
-Repository message listeners are used to remove Aggregates when handling a Domain Event.
-
-Below example illustrates a listener in a Repository:
-
-    public class MyAggregateRepository extends Repository<...> {
-    
-        @MessageListener
-        public void deleteAggregate(Event3 event) {
-            ...
-        }
-    }
-
-Note that there cannot be several listeners per Repository consuming the same message.
-
-Below algorithm summarizes how a repository listener is executed and how transactions are handled.
-
-    while("all delete listeners not executed") {
-        "Start transaction";
-        "Execute delete listener"; // Code actually written
-        "End transaction";
-    }
-
-### In an Explicit Domain Process
-
-Sometimes, defining message listeners at Factory, Aggregate Root and Repository level is not enough because it does not
-enable the definition of more complex handling patterns. This is the purpose of *Explicit Domain Processes*.
-
-An Explicit Domain Process is a non-Domain service which contains message listeners.
-It is defined by a class extending ``DomainProcess``.
-An Explicit  Domain Process routes Domain Events or Commands to an actual Aggregate Root, Factory or Repository,
-potentially by first applying some custom processing.
-
-Below example shows a very simple example of Explicit Domain Process.
-
-    public class MyDomainProcess extends DomainProcess {
-    
-        @MessageListener
-        public void doSomething(Event4 event) {
-            runInTransaction(MyAggregate.class, () -> {
-                MyAggregate aggregate = repository.get(event.id().value());
-                aggregate.handle(event);
-                repository.update(aggregate);
-            });
-        }
-    
-        private MyAggregateRepository repository;
-    }
-
-The `runInTransaction` method runs the provided `Runnable` in the context of a transaction. What this actually
-means depends on the storage technology used for target Aggregate.
-
-Note that above example is equivalent to defining the message listener in `MyAggregate` class and defining a runner
-than returns a single ID equal to ``event.id().value()``.
-
-In order to keep the code base as small (i.e. boilerplate-less) and clean as possible, it is recommended to use Domain 
-Processes only when
-required. In other words, put as many message listeners in Factories, Aggregate Roots and Repositories as possible.
-Explicit Domain Processes are kept for the very rare cases where this approach is not possible.
-
-
-### Enrich Listeners Description
-
-A message listener may be annotation with `ProducesEvent` annotation. This annotation tells which type of
-Domain Event is issued by the message listener upon execution and if the issuance is optional or not.
-Putting this annotation on the listener enables a check by the Runtime that expected events are actually issued.
-If it is not the case, the execution of the listener fails and an exception is thrown, allowing to detect early the
-issue.
-
-This feature is particularly interesting when [testing the model](#test-your-model) but is also used to [generate
-model's expert-readable documentation](#generating-ddd-documentation).
-
-
-## Run your model
-
-The definitions and implementations of Aggregates and Services of a given Module are grouped in a Bundle.
-A Bundle may include components of different Modules.
-
-One or several Bundles may be instantiated in a Pousse-Café ``Runtime``. Upon creation, the 
-Runtime instantiates all required services and injects them when necessary. It also gives access to 
-Aggregates via their Repository and Factory.
-
-The preferred way to create a Bundle is to use a ``BundleConfigurer``.
-
-Below example illustrates the creation of a BundleConfigurer by automatically loading all Domain components and 
-implementations available in a Module:
-
-    public class MyBundle {
-    
-        private MyBundle() {
-    
-        }
-    
-        public static BundleConfigurer configure() {
-            return new BundleConfigurer.Builder()
-                    .module(MyModule.class)
-                    .build();
-        }
-    }
-
-If no Module has been defined (i.e. all Aggregates are in the default Module), `DefaultModule` may be loaded.
-However, this is not recommended because it implies the scanning of **all** classes in the classpath.
-
-The BundleConfigurer uses the following annotations to discover the Domain components to load:
-
-- ``@Aggregate``
-- ``@MessageImplementation``
-- ``@DataAccessImplementation``
-- ``@ServiceImplementation``
-- ``@MessageListener``
-
-In addition, sub-classes of the following interfaces/classes are automatically loaded as well:
-
-- ``Service``
-- ``DomainProcess``
-
-The BundleConfigurer is used to instantiate a Bundle and provide it to a Runtime which may, finally, be 
-started:
-
-    Bundle bundle = MyBundle.configure()
-        .defineAndImplementDefault()
-        .build();
-    Runtime runtime = new Runtime.Builder()
-        .withBundle(bundle)
-        .build();
-    runtime.start();
-
-``defineAndImplementDefault`` method returns a Bundle builder that will use internal storage and messaging.
-In order to use another storage and messaging, use `defineThenImplement`.
-
-A call to ``Runtime``'s ``start`` method actually starts the consumption of messages by listeners. The call to
-`start` is non blocking.
-
-After that, commands may be submitted to the Runtime using `submitCommand` and Aggregates retrieved using their 
-Repository.
-
-Repositories are automatically injected by the Runtime in any registered service. For external services (i.e. non-domain
-services), Repositories may be retrieved from ``Runtime``'s ``Environment`` using the following methods:
-
-- ``runtime.environment().domainProcess(domainProcessClass)`` where ``domainProcessClass`` is the class of the Domain Process to retrieve.
-
-A [Spring integration](#spring-integration) exists enabling direct injection of Domain component in Spring beans
-and vice versa up to some extent.
-
 
 ## Test your model
 
 Pousse-Café provides tools allowing to easily test your model with no heavy storage setup required.
-Actually, you might write your whole Domain logic even before deciding what kind of
-storage you would be using. More importantly, it means that you can focus your tests on the Domain.
+Actually, you might write your whole domain logic even before deciding what kind of
+storage you would be using. More importantly, it means that you can focus your tests on the domain.
 
 For testing, it is suggested to use the default in-memory storage implementation provided by Pousse-Café.
 When actually integrating your Model in a real application, you could
-then just choose another implementation [when building the Runtime](#run-your-model).
+then just choose another implementation [when building the runtime](#run-your-model).
 
 `PousseCafeTest` class can be extended to write (e.g. JUnit) tests involving different Bundles.
-What this class does is essentially instantiate a Runtime and provide helpers to access its components.
+What this class does is essentially instantiate a runtime and provide helpers to access its components.
 
-Below example illustrates a test verifying that the handling of "Create Product" command actually implies the new
-product to be available from the Repository.
+Below example illustrates a test verifying that the handling of `CreateProduct` command actually implies the new
+product to be available from the repository.
 
     public class ProductManagementTest extends PousseCafeTest {
     
@@ -972,27 +871,27 @@ product to be available from the Repository.
         public void productCanBeCreated() {
             ProductId productId = new ProductId("product-id");
             submitCommand(new CreateProduct(productId));
-            assertTrue(getOptional(Product.class, productId).isPresent());
+            assertTrue(orderRepository.existsById(productId));
         }
+    
+        private OrderRepository orderRepository;
     }
 
-Overriding the `runtimeBuilder` method enables the configuration of test Runtime.
+Overriding the `runtimeBuilder` method enables the configuration of test runtime.
 
-``submitCommand`` directly submits the given command into the Runtime for handling.
+``submitCommand`` directly submits the given command into the runtime for handling. `PousseCafeTest` also defines
+`issue` method for direct issuance of domain events.
 
-`getOptional` method is a shortcut that retrieves an Aggregate from its Repository.
-`getOptional` also waits that all
-messages published when executing the command are actually consumed. This ensures that there will be no race
-condition between the asynchronous handling of Domain Events and the fact that the Aggregate being fetched might be
-created as a consequence of the consumption of one of those messages.
+`orderRepository` is automatically set by `PousseCafeTest` which tells the runtime to inject domain components
+in the test case instance.
 
 
 ### Initial state
 
-Generally, when testing the handling of a Command or Domain Event, you need an initial data set to be available (i.e.
+Generally, when testing the handling of a command or domain event, you need an initial data set to be available (i.e.
 an initial state for a collection of aggregates).
 
-You may do this programmatically (by submitting a sequence of Commands and/or Domain Events). However, this approach
+You may do this programmatically (by submitting a sequence of commands and/or domain events). However, this approach
 may produce code which is hard to maintain: each time the process leading to the initial state you are trying to 
 produce changes, you may have to modify your test code, even if the result remains unchanged.
 
@@ -1015,8 +914,8 @@ The file loaded by `loadDataFile` must have the following structure:
     }
 
 The root element is an object, each field of the object being identified by the fully qualified class name of an
-Aggregate Root. The value of the fields is an array of objects, each object representing the data of linked Aggregate.
-The fields of the data objects depend on the implementation of an Aggregate's data. For example, if you data 
+aggregate root. The value of the fields is an array of objects, each object representing the data of linked aggregate.
+The fields of the data objects depend on the implementation of an aggregate's data. For example, if you data 
 implementation class looks like this:
 
     @SuppressWarnings("serial")
@@ -1054,65 +953,42 @@ then you JSON data will look like that:
     }
 
 
-### Testing a Single Entity
+### Testing a Single entity
 
-Sometimes, one wants to only test a single method of an Entity (i.e. not a whole process). In order to produce
-such an Entity, there are 2 possibilities:
+Sometimes, one wants to only test a single method of an entity (i.e. not a whole process). In order to produce
+such an entity, there are 2 possibilities:
 
-1. use a Factory,
+1. use a factory,
 2. produce a instance by hand.
 
-First possibility might require some heavy setup in order to ensure that all constraints checked by the Factory are met.
-Therefore, in some cases, second possibility is preferred. In order to prevent the manual configuration of such an 
-Entity (set data and other Pousse-Café implementation details), `PousseCafeTest` defines a `newEntity` method which 
-produces an empty instance. One may then only set the required attributes and run its test.
+First possibility might require some heavy setup in order to ensure that all constraints checked by the factory are met.
+Therefore, in some cases, the second possibility is preferred. In order to prevent the manual configuration of such an 
+entity (set data and other Pousse-Café implementation details), `PousseCafeTest` defines a `newEntity` method which 
+produces an empty instance. One may then only set the required attributes and run its test against it.
 
+### Behavior-Driven Development testing
 
-## Custom Message Listeners
+`PousseCafeTest` exposes methods enabling to write tests following the given-when-then style defined by
+[Behavior-Driven Development (BDD)](https://dannorth.net/introducing-bdd/).
 
-In some circumstances, for instance when you want to react to a Domain Event in a component that is not managed by
-Pousse-Café's Runtime (e.g. a Spring Bean), you may define
-custom message listeners. Custom message listeners are defined in the same way as Factory, Repository and Domain Process
-listeners (i.e. using the `@MessageListener` annotation). The only difference is that you have to register them 
-explicitly.
+- `given(X)` method is equivalent to `loadDataFile("/" + X + ".json")`,
+- `when(X)` method is equivalent to `issue(X)` if `X` is a domain event or `submitCommand(X)` if `X` is a command.
 
-This is done by using `Runtime`'s `registerListenersOf` method:
+This enables to write a test like this:
 
-    runtime.registerListenersOf(service)
-
-where `service` is the instance of the service defining the listeners.
-
-
-## Message Listeners execution order
-
-No assumption should be made on the order in which message listeners will be executed when handling a given message.
-However, there are priority rules given the type of listener. Below list shows the order in which listener types are executed:
-
-1. Repository listeners
-2. Aggregate listeners
-3. Factory listeners
-4. Domain Process listeners
-5. Custom listeners
-
-So for example, if listeners of all types consume a message `M`, it will first be handled by listeners defined in 
-Repositories, then in listeners defined in Aggregates, etc.
-
-If several listeners are defined per type (e.g. Repository listeners), the order in which they are executed is 
-undefined.
-
-There are several goals behind above priority rule:
-
-- Define "update only" listeners in Aggregates i.e. listeners that will not be executed on Aggregates that were
-previously created while handling the same message;
-- Re-create an aggregate by removing it using a Repository, then re-adding it with a Factory;
-- Prevent the removal by a Repository of an Aggregate previously created by a Factory while handling the same message.
-
+    @Test
+    public void placingOrderOnAllUnitsEmptiesOrder() {
+        given("productWith10UnitsAvailable");
+        givenPlacingOrderForUnits(10);
+        when(orderPlaced);
+        thenOrderUnitsAvailable(0);
+    }
 
 ## Collision Handling
 
 Once you deploy your application in a distributed environment, you will more than likely want to achieve high performance
 and/or high availability which may both be obtained by multiplying the number of processing nodes. In the context of
-a Pousse-Café application, this generally means that you will have several Pousse-Café Runtime instances executed by
+a Pousse-Café application, this generally means that you will have several Pousse-Café runtime instances executed by
 different nodes running the same Modules and, therefore, the same sets of listeners.
 
 The real issue is that you will start experiencing "collisions" i.e. several listeners trying to update or create the
@@ -1122,7 +998,7 @@ In a single node environment, even with several processing threads, Pousse-Café
 in a multi-node environment, this is not possible.
 
 Ideally, a model should be designed in a way that the probability of collision is reduced. Generally, this means
-having many small Aggregates instead of a few big ones. However, it is sometimes not possible to prevent them
+having many small aggregates instead of a few big ones. However, it is sometimes not possible to prevent them
 completely (i.e. the probability of collision cannot be reduced to zero).
 
 To handle this issue, Pousse-Café implements a rather simple mechanism: when a collision is detected while running a
@@ -1132,7 +1008,7 @@ successfully executed.
 Note that this mechanism implies that messages may not be handled in a strict sequence anymore: a retry may cause
 that a message that was sent before another one is actually handled after it. The Model has to be meant in a way
 that supports this. If strict sequences are required, proper synchronization mechanisms have to be implemented.
-Pousse-Café provides means to [skip or retry the execution of listeners](#handle-messages) in order to prevent 
+Pousse-Café provides means to [skip or retry the execution of listeners](#message-listeners) in order to prevent 
 inconsistencies.
 
 
@@ -1153,8 +1029,8 @@ meantime. If this did not happen, the duplicate key error must be interpreted as
 a bug).
 
 The fact that a skipped update requires a subsequent creation is noticed via a `TargetAggregates<K>` instance
-returned by a runner (see [Aggregate Root listeners](#in-an-aggregate-root)). For example, the following code inside
-of Runner's `targetAggregates` method tells to Pousse-Café that Aggregate with ID `id` might be updated but if it
+returned by a runner (see [aggregate root listeners](#in-an-aggregate-root)). For example, the following code inside
+of Runner's `targetAggregates` method tells to Pousse-Café that aggregate with ID `id` might be updated but if it
 is not, then it must be created:
 
     MyAggregateId id = ...;
@@ -1168,7 +1044,7 @@ is not, then it must be created:
                 .build();
     }
 
-The creation itself must be handled by a [Factory listener](#in-a-factory). Above logic is implemented by helpers
+The creation itself must be handled by a [factory listener](#in-a-factory). Above logic is implemented by helpers
 `UpdateOrCreateRunner` and `UpdateOrCreateOneRunner`. It is recommended to extend one of them when doing
 "update or create" in a collision-prone environment.
 
@@ -1176,9 +1052,9 @@ Note that in a collision-free environment, the "else" block of above code is use
 executed in case no update was.
 
 
-### Explicit Domain Processes and Custom Listeners
+### Explicit domain processes and Custom Listeners
 
-Currently, automated collision detection and handling is not available for explicit Domain Processes' listeners and
+Currently, automated collision detection and handling is not available for explicit domain processes' listeners and
 custom listeners. In those cases, collisions have to be handled explicitly by the developer.
 
 ## More on Attributes
@@ -1189,7 +1065,7 @@ Attributes [were introduced](#introducing-attributes) previously. This section d
 
 Attributes can convert data using `DataAdapter<S, T>` instances (where `S` is the type of stored value and `T` the
 type of the Attribute). When `S` is a "primitive" type (i.e. a type supported by persistence tool), this is the
-preferred approach. When `S` and `T` are custom types (e.g. Value Objects), two classes have to be written:
+preferred approach. When `S` and `T` are custom types (e.g. value objects), two classes have to be written:
 `S` and the custom Data Adapter.
 
 The problem is that most of the time, touching the custom type implies a modification
@@ -1210,7 +1086,7 @@ An auto-adapter is a class that has at least 2 methods:
 The first method instantiates the auto-adapter from an Attribute's value. The second method instantiates the value
 of the Attribute based on its state.
 
-Let's take the example of a Value Object:
+Let's take the example of a value object:
 
     public class Example implements ValueObject {
     
@@ -1606,48 +1482,48 @@ and `convertMyTypeIntoStoredType` is an instance of `Function<MyType, StoredType
 The class `poussecafe.attribute.adapters.DataAdapters` contains a collection of factory methods instantiating
 common data adapters.
 
-### Entity Attributes
+### Entity attributes
 
-Entity Attributes enable the implementation of one-to-one and one-to-many relations between entities. Many-to-many
-relations are implemented using an additional Aggregate acting as the relation between other Aggregates.
+Entity attributes enable the implementation of one-to-one and one-to-many relations between entities. Many-to-many
+relations are implemented using an additional aggregate acting as the relation between other aggregates.
 
-Entity Attributes i.e. Attributes whose type is a sub-class of `poussecafe.domain.Entity` require a different
+Entity attributes i.e. Attributes whose type is a sub-class of `poussecafe.domain.Entity` require a different
 approach because:
 
-- altering individual Attributes of an Entity has to update immediately the data (i.e. the value returned by an Entity
+- altering individual Attributes of an entity has to update immediately the data (i.e. the value returned by an entity
 Attribute is mutable, which should generally not be the case),
-- Domain Events issued while interacting with an Entity are queued at the Aggregate level.
+- domain events issued while interacting with an entity are queued at the aggregate level.
 
 Therefore, there is a need for a specific attribute class `EntityAttribute<E extends Entity>`.
 
-The following snippet illustrates how to set the value of an Entity Attribute:
+The following snippet illustrates how to set the value of an entity Attribute:
 
     var newEntity = newEntityBuilder(MyEntity.class).withId(someId).build();
     // Set newEntity attributes and/or call its methods here
     attributes().entity().value(newEntity);
 
-The `OptionalEntityAttribute` is similar to `EntityAttribute` but supports the case where no Entity is available.
+The `OptionalEntityAttribute` is similar to `EntityAttribute` but supports the case where no entity is available.
 
 Both `EntityAttribute` and `OptionalEntityAttribute` implement a one-to-one relation.
 
 `EntityMapAttribute` enables the implementation of one-to-many relations. It extends
 `MapAttribute<K, E extends Entity<K, ?>`.
 
-The following snippet illustrates how to put a new Entity in the Entities map:
+The following snippet illustrates how to put a new entity in the Entities map:
 
     var newEntity = newEntityBuilder(MyEntity.class).withId(someId).build();
     // Set newEntity attributes and/or call its methods here
     map.putEntity(newEntity);
 
 
-## Configuring Services
+## Configuring services
 
-Sometimes, Services need some external configuration (e.g. a URL to inject into a text). When [instantiating
-the Runtime](#run-you-model), configuration entries may be added with Runtime Builder's `withConfiguration` methods.
-Runtime's `poussecafe.runtime.Configuration` instance can be injected in a Service, giving access to
+Sometimes, services need some external configuration (e.g. a URL to inject into a text). When [instantiating
+the runtime](#run-you-model), configuration entries may be added with runtime Builder's `withConfiguration` methods.
+runtime's `poussecafe.runtime.Configuration` instance can be injected in a service, giving access to
 configuration entries.
 
-For example, let's have a Runtime created as follows:
+For example, let's have a runtime created as follows:
 
     new Runtime.Builder()
         ...
@@ -1655,7 +1531,7 @@ For example, let's have a Runtime created as follows:
         ...
         .build();
 
-Given a Service defined as follows:
+Given a service defined as follows:
 
     public class MyService implements Service {
     
@@ -1709,13 +1585,13 @@ The way components are actually documented is described in the following section
 
 ### Module
 
-A Module is defined by interfaces or classes extending or implementing `poussecafe.domain.Module`.
+A module is defined by interfaces or classes extending or implementing `poussecafe.domain.Module`.
 
-The name of the Module is the name of Module's class.
+The name of the module is the name of module's class.
 
-The javadoc comment's body is used as the description of the Module. HTML tags may be used for formatting.
+The javadoc comment's body is used as the description of the module. HTML tags may be used for formatting.
 
-`@short` tag defines the short (i.e. one sentence) description of the Module. The short description is used
+`@short` tag defines the short (i.e. one sentence) description of the module. The short description is used
 in the Ubiquitous Language section of the documentation.
 
 Example:
@@ -1728,8 +1604,8 @@ Example:
 
 ### Module Components
 
-Each Module Component (Aggregate, Entity, Value Object, Service and Domain Process) is described in the javadoc comment
-on its class (i.e. a class extending respectively `AggregateRoot`, `Entity`, `ValueObject`, `Service` or
+Each module Component (aggregate, entity, value object, service and domain process) is described in the javadoc comment
+on its class (i.e. a class extending respectively `AggregateRoot`, `value object`, `ValueObject`, `Service` or
 `Process`).
 
 The name of the component is the name of the class.
@@ -1750,34 +1626,34 @@ Example:
 `@ignore` tag used at class level or on methods tells that the component itself or a link to other
 components must be ignored i.e. the component or the link is not documented.
 
-`@trivial` tag used at class level tells that there is no need for a description (e.g. a Value Object named
-MyAggregateId is obviously the identifier of Aggregate MyAggregate).
+`@trivial` tag used at class level tells that there is no need for a description (e.g. a value object named
+MyAggregateId is obviously the identifier of aggregate MyAggregate).
 
-Above components must be part of a Module. The Aggregate is attached to a Module through the `module` of
-`@AggregateRoot`. The other components are attached to a Module using the `@Module` annotation, its value being
-a Module class. The package of the component class must be compatible with the Module package: it must be the same as
-or a sub-package of the Module definition classes package (i.e. if a Module class is in package `x.y.z`, then Domain
-Process class must be in package `x.y.z` or in a sub-package).
+Above components must be part of a module. The aggregate is attached to a module through the `module` of
+`@AggregateRoot`. The other components are attached to a module using the `@Module` annotation, its value being
+a module class. The package of the component class must be compatible with the module package: it must be the same as
+or a sub-package of the module definition classes package (i.e. if a module class is in package `x.y.z`, then domain
+process class must be in package `x.y.z` or in a sub-package).
 
 
-### Domain Processes
+### Domain processes
 
-A Domain Process is essentially described by a directed graph where:
+A domain process is essentially described by a directed graph where:
 
-- nodes represent the *Steps* of the process i.e. the executed message listeners;
-- edges represent a Domain Event being issued by a source node (i.e. in the context of the execution of a Message 
-  Listener) and handled by a destination node (i.e. another Message Listener).
+- nodes represent the *steps* of the process i.e. the executed message listeners;
+- edges represent a domain event being issued by a source node (i.e. in the context of the execution of a Message 
+  Listener) and handled by a destination node (i.e. another message listener).
 
-Pousse-Café Doc is able to automatically discover the steps of a Domain Process by analyzing all defined message 
+Pousse-Café Doc is able to automatically discover the steps of a domain process by analyzing all defined message 
 listeners. It uses `@MessageListener` and `@ProducesEvent` annotations to do so.
 
-The name of the Domain Process is the name of a class extending `poussecafe.domain.Process`.
+The name of the domain process is the name of a class extending `poussecafe.domain.Process`.
 
-The description of the Domain Process is given by javadoc comment's body. HTML tags may be used for formatting.
+The description of the domain process is given by javadoc comment's body. HTML tags may be used for formatting.
 
-`@Module` annotation can be used to explicitly bind a Domain Process to a Module. The package of the Domain Process
-class must be compatible with the Module package: it must be the same as or a sub-package of the Module definition
-classes package (i.e. if a Module class is in package `x.y.z`, then Domain Process class must be in package `x.y.z`
+`@Module` annotation can be used to explicitly bind a domain process to a module. The package of the domain process
+class must be compatible with the module package: it must be the same as or a sub-package of the module definition
+classes package (i.e. if a module class is in package `x.y.z`, then domain process class must be in package `x.y.z`
 or in a sub-package).
 
 Furthermore, "virtual nodes" may be added to the graph to illustrate the fact that some events are coming from or going 
@@ -1785,13 +1661,13 @@ to non-domain components (in case of integration with an external system) or oth
 
 This is controlled by
 - `@MessageListener`'s `consumesFromExternal` attribute which contains a list of names
-identifying the non-domain components or Modules producing the message consumed by the Message Listener;
+identifying the non-domain components or Modules producing the message consumed by the message listener;
 - `@ProducesEvent`'s `consumedByExternal` attribute which contains a list of names
-identifying the non-domain components or Modules consuming the message produced by the Message Listener;
+identifying the non-domain components or Modules consuming the message produced by the message listener;
 
 ## Spring Integration
 
-Instantiating a Pousse-Café Runtime inside of a Spring application is easy thanks to Pousse-Café's
+Instantiating a Pousse-Café runtime inside of a Spring application is easy thanks to Pousse-Café's
 [Spring Bridge](https://github.com/pousse-cafe/pousse-cafe-spring). See project README for more details about how
 to do so.
 
