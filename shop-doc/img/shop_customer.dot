@@ -1,0 +1,7 @@
+graph {
+splines=spline;
+overlap=false;
+"Customer" -- "CustomerId" [style=solid];
+"Customer"[shape=box,style=bold];
+"CustomerId"[shape=ellipse];
+}

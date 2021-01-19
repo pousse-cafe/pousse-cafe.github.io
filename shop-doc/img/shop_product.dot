@@ -1,5 +1,7 @@
 graph {
 splines=spline;
 overlap=false;
+"Product" -- "ProductId" [style=solid];
 "Product"[shape=box,style=bold];
+"ProductId"[shape=ellipse];
 }

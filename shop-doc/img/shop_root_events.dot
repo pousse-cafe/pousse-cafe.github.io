@@ -1,0 +1,17 @@
+digraph {
+splines=spline;
+"OrderRejected" -> "MessageRoot" [style=solid];
+"PlaceOrder" -> "Root" [style=solid];
+"Root" -> "OrderPlaced" [style=dotted];
+"Root" -> "OrderRejected" [style=dotted];
+"AddUnits" -> "Root" [style=solid];
+"CreateProduct" -> "Root" [style=solid];
+"OrderPlaced" -> "Root" [style=solid];
+"PlaceOrder"[shape=ellipse];
+"Root"[shape=box];
+"OrderRejected"[shape=ellipse];
+"CreateProduct"[shape=ellipse];
+"MessageRoot"[shape=box];
+"OrderPlaced"[shape=ellipse];
+"AddUnits"[shape=ellipse];
+}

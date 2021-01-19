@@ -1,18 +1,18 @@
 digraph {
 splines=spline;
-"PlaceOrder" -> "Product" [style=solid];
-"Product" -> "OrderPlaced" [style=dotted];
-"OrderPlaced" -> "OrderRoot" [style=solid];
-"Product" -> "OrderRejected" [style=dotted];
 "OrderRejected" -> "Message" [style=solid];
+"PlaceOrder" -> "Product" [style=solid];
 "AddUnits" -> "Product" [style=solid];
 "CreateProduct" -> "Product" [style=solid];
+"Product" -> "OrderPlaced" [style=dotted];
+"Product" -> "OrderRejected" [style=dotted];
+"OrderPlaced" -> "Order" [style=solid];
+"Order"[shape=box];
 "PlaceOrder"[shape=ellipse];
 "Message"[shape=box];
 "OrderRejected"[shape=ellipse];
 "CreateProduct"[shape=ellipse];
 "OrderPlaced"[shape=ellipse];
 "Product"[shape=box,style=bold];
-"OrderRoot"[shape=box];
 "AddUnits"[shape=ellipse];
 }

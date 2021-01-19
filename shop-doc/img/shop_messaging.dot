@@ -1,19 +1,18 @@
 digraph {
 splines=spline;
-"OrderShippment" -> "MessageFactory.buildMessage(OrderReadyForShipping)" [style=solid];
-"MessageFactory.buildMessage(OrderReadyForShipping)" -> "Communication System" [style=solid];
-"MessageFactory.buildMessage(OrderCreated)" -> "Communication System" [style=solid];
-"MessageFactory.buildMessage(OrderSettled)" -> "Communication System" [style=solid];
-"OrderPlacement" -> "MessageFactory.buildMessage(OrderCreated)" [style=solid];
-"OrderPlacement" -> "MessageFactory.buildMessage(OrderRejected)" [style=solid];
-"MessageFactory.buildMessage(OrderRejected)" -> "Communication System" [style=solid];
-"OrderSettlement" -> "MessageFactory.buildMessage(OrderSettled)" [style=solid];
-"MessageFactory.buildMessage(OrderSettled)"[shape=ellipse];
-"MessageFactory.buildMessage(OrderCreated)"[shape=ellipse];
-"MessageFactory.buildMessage(OrderReadyForShipping)"[shape=ellipse];
-"MessageFactory.buildMessage(OrderRejected)"[shape=ellipse];
+"OrderPlacement" -> "Message.buildMessage(OrderRejected)" [style=solid];
+"Message.buildMessage(OrderCreated)" -> "Communication System" [style=solid];
+"Message.buildMessage(OrderReadyForShipping)" -> "Communication System" [style=solid];
+"OrderSettlement" -> "Message.buildMessage(OrderSettled)" [style=solid];
+"Message.buildMessage(OrderRejected)" -> "Communication System" [style=solid];
+"OrderShippment" -> "Message.buildMessage(OrderReadyForShipping)" [style=solid];
+"Message.buildMessage(OrderSettled)" -> "Communication System" [style=solid];
 "OrderShippment"[shape=box,style=dashed];
 "OrderSettlement"[shape=box,style=dashed];
+"Message.buildMessage(OrderSettled)"[shape=ellipse];
 "OrderPlacement"[shape=box,style=dashed];
+"Message.buildMessage(OrderRejected)"[shape=ellipse];
+"Message.buildMessage(OrderReadyForShipping)"[shape=ellipse];
+"Message.buildMessage(OrderCreated)"[shape=ellipse];
 "Communication System"[shape=box,style=dashed];
 }

@@ -1,5 +1,5 @@
 graph {
 splines=spline;
 overlap=false;
-"OrderRoot"[shape=box,style=bold];
+"Root"[shape=box,style=bold];
 }

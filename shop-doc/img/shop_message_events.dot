@@ -1,22 +1,22 @@
 digraph {
 splines=spline;
-"OrderRoot" -> "OrderSettled" [style=solid];
-"OrderRoot" -> "OrderReadyForShipping" [style=solid];
-"OrderCreated" -> "Message" [style=solid];
 "OrderSettled" -> "Message" [style=solid];
+"Product" -> "OrderRejected" [style=solid];
 "OrderRejected" -> "Message" [style=solid];
 "OrderReadyForShipping" -> "Message" [style=solid];
-"Message" -> "MessageCreated" [style=solid];
-"OrderRoot" -> "OrderCreated" [style=solid];
-"Product" -> "OrderRejected" [style=solid];
+"Order" -> "OrderReadyForShipping" [style=solid];
 "MessageCreated" -> "Communication System" [style=solid];
+"OrderCreated" -> "Message" [style=solid];
+"Message" -> "MessageCreated" [style=solid];
+"Order" -> "OrderCreated" [style=solid];
+"Order" -> "OrderSettled" [style=solid];
+"Order"[shape=box];
 "Message"[shape=box,style=bold];
 "OrderRejected"[shape=ellipse];
 "Product"[shape=box];
-"OrderRoot"[shape=box];
 "MessageCreated"[shape=ellipse];
-"OrderCreated"[shape=ellipse];
 "OrderSettled"[shape=ellipse];
+"OrderCreated"[shape=ellipse];
 "OrderReadyForShipping"[shape=ellipse];
 "Communication System"[shape=box,style=dashed];
 }

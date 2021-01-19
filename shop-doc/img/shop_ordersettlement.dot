@@ -1,6 +1,6 @@
 digraph {
 splines=spline;
-"OrderRoot.settle(SettleOrder)" -> "Messaging" [style=solid];
-"OrderRoot.settle(SettleOrder)"[shape=ellipse];
+"Order.settle(SettleOrder)" -> "Messaging" [style=solid];
+"Order.settle(SettleOrder)"[shape=ellipse];
 "Messaging"[shape=box,style=dashed];
 }

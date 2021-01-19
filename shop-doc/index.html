@@ -38,9 +38,9 @@ Shop Domain Model
         <ol>
           <li><a href="#shop_aggregates">Aggregates</a></li>
           <ol>
-            <li><a href="#shop_customerroot">CustomerRoot</a></li>
+            <li><a href="#shop_customer">Customer</a></li>
             <li><a href="#shop_message">Message</a></li>
-            <li><a href="#shop_orderroot">OrderRoot</a></li>
+            <li><a href="#shop_order">Order</a></li>
             <li><a href="#shop_product">Product</a></li>
           </ol>
           <li><a href="#shop_processes">Domain Processes</a></li>
@@ -111,9 +111,9 @@ producing and/or sending messages.</p>
 <p>Each directed edge represents a message being produced by source node and consumed by destination node.</p>
 
 <p>The section ends with the list of message listeners involved in the process and their description. The naming
-convention for the message listeners is <pre>Component.listenerName(Event)</pre> where <pre>Component</pre> is the
-name of the enclosing component (an Aggregate Root, a Factory, etc.), <pre>listenerName</pre> is the name of the
-listener inside of the component and <pre>Event</pre> is the name of the consumed event.</p>
+convention for the message listeners is <pre>Aggregate.listenerName(Event)</pre> where <pre>Aggregate</pre> is the
+name of the aggregate being created/updated/deleted, <pre>listenerName</pre> is the name of the
+listener inside of the component and <pre>Event</pre> is the name of the consumed event or command.</p>
 
 <h1 id="domain">Shop Domain</h1>
 
@@ -127,22 +127,22 @@ Models an online shop where Customers may buy Products by placing Orders. Custom
 
 <h3 id="shop_aggregates">Aggregates</h3>
 
-<h4 id="shop_customerroot">CustomerRoot</h4>
-
+<h4 id="shop_customer">Customer</h4>
+<p>A Customer can place Orders and receive Messages.</p>
 
 <div class="figure">
-  <img src="img/shop_customerroot.png"/>
+  <img src="img/shop_customer.png"/>
 </div>
 
 
 
 <h5>Events</h5>
 <div class="figure">
-  <img src="img/shop_customerroot_events.png"/>
+  <img src="img/shop_customer_events.png"/>
 </div>
 
 <h4 id="shop_message">Message</h4>
-
+<p>Messages are sent to Customers to notify them about an event.</p>
 
 <div class="figure">
   <img src="img/shop_message.png"/>
@@ -150,7 +150,7 @@ Models an online shop where Customers may buy Products by placing Orders. Custom
 
 <h5>Value Objects</h5>
 <ul>
-  <li><strong>ContentType:</strong> </li>
+  <li><strong>ContentType:</strong> The type of message to send.</li>
 </ul>
 
 
@@ -159,22 +159,29 @@ Models an online shop where Customers may buy Products by placing Orders. Custom
   <img src="img/shop_message_events.png"/>
 </div>
 
-<h4 id="shop_orderroot">OrderRoot</h4>
-
+<h4 id="shop_order">Order</h4>
+<p>Orders are placed by Customers when they buy a given number of units of a given Product. An Order is first created,
+ then settled (upon receivable of Customer's payment), and finally shipped (when passed over to transporter).</p>
 
 <div class="figure">
-  <img src="img/shop_orderroot.png"/>
+  <img src="img/shop_order.png"/>
 </div>
 
+<h5>Value Objects</h5>
+<ul>
+  <li><strong>OrderId:</strong> An Order identifier consists in a Product ID, a customer ID and a reference enabling a Customer to place several
+ orders for the same Product and still distinguish them.</li>
+</ul>
 
 
 <h5>Events</h5>
 <div class="figure">
-  <img src="img/shop_orderroot_events.png"/>
+  <img src="img/shop_order_events.png"/>
 </div>
 
 <h4 id="shop_product">Product</h4>
-
+<p>A Product is a good or service that can be bought by a Customer. Customer have to place an Order when buying units
+ of a given Product. The number of available units may be increased and is decreased with successfully placed Orders.</p>
 
 <div class="figure">
   <img src="img/shop_product.png"/>
@@ -191,85 +198,89 @@ Models an online shop where Customers may buy Products by placing Orders. Custom
 
 <h3 id="shop_processes">Domain Processes</h3>
 <h4 id="shop_customercreation">CustomerCreation</h4>
-
+<p>Executed when creating a new Customer.</p>
 
 <div class="figure">
   <img src="img/shop_customercreation.png"/>
 </div>
 
 <ul>
-  <li><strong>CustomerFactory.createCustomer(CreateCustomer):</strong> </li>
+  <li><strong>Customer.createCustomer(CreateCustomer):</strong> </li>
 </ul>
 <h4 id="shop_messaging">Messaging</h4>
-
+<p>Executed when sending a message to a Customer.</p>
 
 <div class="figure">
   <img src="img/shop_messaging.png"/>
 </div>
 
 <ul>
-  <li><strong>MessageFactory.buildMessage(OrderReadyForShipping):</strong> </li>
-  <li><strong>MessageFactory.buildMessage(OrderSettled):</strong> </li>
-  <li><strong>MessageFactory.buildMessage(OrderCreated):</strong> </li>
-  <li><strong>MessageFactory.buildMessage(OrderRejected):</strong> </li>
+  <li><strong>Message.buildMessage(OrderSettled):</strong> Creates a new Message upon Order settlement.</li>
+  <li><strong>Message.buildMessage(OrderRejected):</strong> Creates a new Message upon Order rejection.</li>
+  <li><strong>Message.buildMessage(OrderReadyForShipping):</strong> Creates a new Message upon Order shipment.</li>
+  <li><strong>Message.buildMessage(OrderCreated):</strong> Creates a new Message upon successful Order creation.</li>
 </ul>
 <h4 id="shop_orderplacement">OrderPlacement</h4>
-
+<p>Executed when a Customer places an order.</p>
 
 <div class="figure">
   <img src="img/shop_orderplacement.png"/>
 </div>
 
 <ul>
-  <li><strong>Product.placeOrder(PlaceOrder):</strong> </li>
-  <li><strong>OrderFactory.buildPlacedOrder(OrderPlaced):</strong> </li>
+  <li><strong>Product.placeOrder(PlaceOrder):</strong> Tries to place an order if there are enough units available.</li>
+  <li><strong>Order.buildPlacedOrder(OrderPlaced):</strong> Creates an Order is it was successfully placed.</li>
 </ul>
 <h4 id="shop_ordersettlement">OrderSettlement</h4>
-
+<p>Executed when an Order is settled.</p>
 
 <div class="figure">
   <img src="img/shop_ordersettlement.png"/>
 </div>
 
 <ul>
-  <li><strong>OrderRoot.settle(SettleOrder):</strong> </li>
+  <li><strong>Order.settle(SettleOrder):</strong> Settles the Order.</li>
 </ul>
 <h4 id="shop_ordershippment">OrderShippment</h4>
-
+<p>Executed when an Order is shipped.</p>
 
 <div class="figure">
   <img src="img/shop_ordershippment.png"/>
 </div>
 
 <ul>
-  <li><strong>OrderRoot.ship(ShipOrder):</strong> </li>
+  <li><strong>Order.ship(ShipOrder):</strong> Marks the Order as ready to be shipped.</li>
 </ul>
 <h4 id="shop_productmanagement">ProductManagement</h4>
-
+<p>Executed when managing a Product i.e. creating it or adding some units to it.</p>
 
 <div class="figure">
   <img src="img/shop_productmanagement.png"/>
 </div>
 
 <ul>
-  <li><strong>ProductFactory.buildProductWithNoStock(CreateProduct):</strong> </li>
-  <li><strong>Product.addUnits(AddUnits):</strong> </li>
+  <li><strong>Product.buildProductWithNoStock(CreateProduct):</strong> Creates a new Product with no stock (i.e. 0 units available).</li>
+  <li><strong>Product.addUnits(AddUnits):</strong> Adds available units to the Product.</li>
 </ul>
 
 
 <h1 id="ubiquitous_language">Ubiquitous Language</h1>
 <ol class="ubiquitousLanguage">
-<li><span class="entryName">ContentType (Shop)</span>, Value Object, </li>
-<li><span class="entryName">CustomerCreation (Shop)</span>, Domain Process, </li>
-<li><span class="entryName">CustomerRoot (Shop)</span>, Aggregate, </li>
-<li><span class="entryName">Message (Shop)</span>, Aggregate, </li>
-<li><span class="entryName">Messaging (Shop)</span>, Domain Process, </li>
-<li><span class="entryName">OrderPlacement (Shop)</span>, Domain Process, </li>
-<li><span class="entryName">OrderRoot (Shop)</span>, Aggregate, </li>
-<li><span class="entryName">OrderSettlement (Shop)</span>, Domain Process, </li>
-<li><span class="entryName">OrderShippment (Shop)</span>, Domain Process, </li>
-<li><span class="entryName">Product (Shop)</span>, Aggregate, </li>
-<li><span class="entryName">ProductManagement (Shop)</span>, Domain Process, </li>
+<li><span class="entryName">ContentType (Shop)</span>, Value Object, The type of message to send.</li>
+<li><span class="entryName">Customer (Shop)</span>, Aggregate, A Customer can place Orders and receive Messages.</li>
+<li><span class="entryName">CustomerCreation (Shop)</span>, Domain Process, Executed when creating a new Customer.</li>
+<li><span class="entryName">Message (Shop)</span>, Aggregate, Messages are sent to Customers to notify them about an event.</li>
+<li><span class="entryName">Messaging (Shop)</span>, Domain Process, Executed when sending a message to a Customer.</li>
+<li><span class="entryName">Order (Shop)</span>, Aggregate, Orders are placed by Customers when they buy a given number of units of a given Product. An Order is first created,
+ then settled (upon receivable of Customer's payment), and finally shipped (when passed over to transporter).</li>
+<li><span class="entryName">OrderId (Shop)</span>, Value Object, An Order identifier consists in a Product ID, a customer ID and a reference enabling a Customer to place several
+ orders for the same Product and still distinguish them.</li>
+<li><span class="entryName">OrderPlacement (Shop)</span>, Domain Process, Executed when a Customer places an order.</li>
+<li><span class="entryName">OrderSettlement (Shop)</span>, Domain Process, Executed when an Order is settled.</li>
+<li><span class="entryName">OrderShippment (Shop)</span>, Domain Process, Executed when an Order is shipped.</li>
+<li><span class="entryName">Product (Shop)</span>, Aggregate, A Product is a good or service that can be bought by a Customer. Customer have to place an Order when buying units
+ of a given Product. The number of available units may be increased and is decreased with successfully placed Orders.</li>
+<li><span class="entryName">ProductManagement (Shop)</span>, Domain Process, Executed when managing a Product i.e. creating it or adding some units to it.</li>
 <li><span class="entryName">Shop</span>, Module, Models an online shop where Customers may buy Products by placing Orders. Customers receive Message giving them an
  update about the handling of their Orders.</li>
 </ol>

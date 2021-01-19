@@ -1,5 +1,5 @@
 digraph {
 splines=spline;
-"ProductFactory.buildProductWithNoStock(CreateProduct)"[shape=ellipse];
 "Product.addUnits(AddUnits)"[shape=ellipse];
+"Product.buildProductWithNoStock(CreateProduct)"[shape=ellipse];
 }

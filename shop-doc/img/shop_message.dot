@@ -1,7 +1,11 @@
 graph {
 splines=spline;
 overlap=false;
+"CustomerId" -- "Message" [style=solid];
 "ContentType" -- "Message" [style=solid];
+"Customer" -- "CustomerId" [style=dotted];
 "Message"[shape=box,style=bold];
 "ContentType"[shape=ellipse];
+"Customer"[shape=box,style=bold];
+"CustomerId"[shape=ellipse];
 }

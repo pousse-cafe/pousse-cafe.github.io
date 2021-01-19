@@ -1,6 +1,0 @@
-digraph {
-splines=spline;
-"CreateCustomer" -> "CustomerRoot" [style=solid];
-"CustomerRoot"[shape=box,style=bold];
-"CreateCustomer"[shape=ellipse];
-}

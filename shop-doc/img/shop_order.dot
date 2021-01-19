@@ -1,0 +1,15 @@
+graph {
+splines=spline;
+overlap=false;
+"Order" -- "OrderId" [style=solid];
+"Product" -- "ProductId" [style=dotted];
+"OrderId" -- "ProductId" [style=solid];
+"CustomerId" -- "OrderId" [style=solid];
+"Customer" -- "CustomerId" [style=dotted];
+"Order"[shape=box,style=bold];
+"Customer"[shape=box,style=bold];
+"Product"[shape=box,style=bold];
+"ProductId"[shape=ellipse];
+"CustomerId"[shape=ellipse];
+"OrderId"[shape=ellipse];
+}

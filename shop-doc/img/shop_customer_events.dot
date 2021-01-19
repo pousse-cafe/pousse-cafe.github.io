@@ -1,0 +1,6 @@
+digraph {
+splines=spline;
+"CreateCustomer" -> "Customer" [style=solid];
+"Customer"[shape=box,style=bold];
+"CreateCustomer"[shape=ellipse];
+}
