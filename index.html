@@ -65,16 +65,7 @@ title: Home
                         </ul>
                     </div>
                     <div class="col-md-6">
-                        <pre><code>process OrderPlacement
-
-PlaceOrder? -> Ru{PlaceOrderRunner}
-    @Product[placeOrder]:
-        :OrderPlaced!# -> F{OrderFactory}[buildPlacedOrder]
-            @OrderRoot[onAdd]:
-                :OrderCreated! -> P{Messaging}
-                :.
-        :OrderRejected!# -> P{Messaging}
-        :.</code></pre>
+                        <img src="/img/order_placement_emil.png">
                         <p class="caption">EMIL process representation</p>
                     </div>
                 </div>
@@ -97,11 +88,12 @@ PlaceOrder? -> Ru{PlaceOrderRunner}
                     </div>
                     <div class="col-md-6">
                         <pre><code class="java">@MessageListener(processes = OrderPlacement.class)
-public OrderRoot buildPlacedOrder(OrderPlaced event) {
+@ProducesEvent(OrderCreated.class)
+public Root buildPlacedOrder(OrderPlaced event) {
     OrderDescription description = event.description().value();
     OrderId id = new OrderId(event.productId().value(),
         description.customerId(), description.reference());
-    OrderRoot order = newAggregateWithId(id);
+    Root order = newAggregateWithId(id);
     order.attributes().units().value(description.units());
     return order;
 }</code></pre>
