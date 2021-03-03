@@ -10,6 +10,21 @@ html, body {
   background-color: white;
   min-height: calc(100% - 277px);
   padding-bottom: 50px;
+
+  h2 {
+    padding-top: 110px;
+    margin-top: -80px;
+  }
+
+  .highlight {
+    margin-top: 30px;
+    margin-bottom: 30px;
+  }
+  
+  .alert {
+    margin-top: 30px;
+    margin-bottom: 30px;
+  }
 }
 
 body {
