@@ -1,12 +1,18 @@
 footer {
-  background-color: $poussecafe-back-color;
+  background-color: $poussecafe-back-color2;
+  color: white;
   padding-top: 50px;
   padding-bottom: 50px;
-  margin-top: 50px;
 
-  a, a:hover, a:active, a:visited, a:focus {
-    color: white;
-  }
+    a, a:active, a:visited, a:focus {
+        color: white;
+        border-bottom: 1px dashed white;
+    }
+
+    a:hover {
+        color: white;
+        border-bottom: 1px solid white;
+    }
 
   .contact {
     text-align: right;

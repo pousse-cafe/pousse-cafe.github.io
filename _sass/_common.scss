@@ -2,23 +2,33 @@ $poussecafe-back-color: #b39c6e;
 $poussecafe-back-color2: #7e7258;
 $poussecafe-link: white;
 
+html, body {
+    height: 100%;
+}
+
+.content-wrapper {
+  background-color: white;
+  min-height: calc(100% - 277px);
+  padding-bottom: 50px;
+}
+
 body {
-  background-color: $poussecafe-back-color2;
-  color: white;
+  background-color: white;
+  color: $poussecafe-back-color2;
   font-family: 'Source Sans Pro', sans-serif;
   font-size: 18px;
 }
 
 a, a:active, a:visited, a:focus {
-  color: $poussecafe-link;
+  color: $poussecafe-back-color2;
   text-decoration: none;
-  border-bottom: 1px dashed $poussecafe-link;
+  border-bottom: 1px dashed $poussecafe-back-color2;
 }
 
 a:hover {
-  color: $poussecafe-link;
+  color: $poussecafe-back-color;
   text-decoration: none;
-  border-bottom: 1px solid $poussecafe-link;
+  border-bottom: 1px solid $poussecafe-back-color;
 }
 
 h1 {
@@ -58,4 +68,33 @@ img.fill-width {
 .caption {
     text-align: center;
     font-style: italic;
+}
+
+.jumbotron {
+    background-color: $poussecafe-back-color;
+    color: white;
+
+    h1 {
+      border: none;
+      padding-bottom: 0;
+      margin-top: 20px;
+    }
+
+    h2 {
+      text-transform: none;
+      padding: 0;
+      border-bottom: none;
+    }
+
+    .benefits {
+        h2 {
+            text-transform: uppercase;
+        }
+    }
+
+    a, a:active, a:visited, a:focus {
+        color: white;
+        text-decoration: none;
+        border-bottom: 1px dashed white;
+    }
 }
